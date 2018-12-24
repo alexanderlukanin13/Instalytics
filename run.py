@@ -1,5 +1,9 @@
-from pridikt import Retrieve
+from app import Retrieve
 
-picture = Retrieve()
+retr = Retrieve()
 
-picture.retrieve_picture('BHdAPvzBJMT')
+#retr.retrieve_picture('BHdAPvzBJMT')
+
+#retr.retrieve_location('243768061')
+
+retr.retrieve_user('swissglam')
