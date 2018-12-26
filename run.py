@@ -6,12 +6,12 @@ from app import Extract
 
 logging.basicConfig(level=logging.INFO)
 
-#sr = Search()
+sr = Search()
+retr = Retrieve()
+ex = Extract()
 
 #pictures = sr.incomplete('picture', 'retrieved')
 #print(pictures)
-
-retr = Retrieve()
 
 #retr.retrieve_picture('BHdAPvzBJMT')
 
@@ -19,8 +19,15 @@ retr = Retrieve()
 
 #retr.retrieve_user('swissglam')
 
-ex = Extract()
 
-for location in ['1664544623601787']:
-    retr.retrieve_location(location)
-    ex.location_details(location)
+# for location in ['1664544623601787']:
+#     retr.retrieve_location(location)
+#     ex.location_details(location)
+
+# for post in ['BNKBq6LAzjq']:
+#     retr.retrieve_picture(post)
+#     ex.picture_details(post)
+
+for user in ['world_besttravel']:
+    retr.retrieve_user(user)
+    ex.user_details(user)
