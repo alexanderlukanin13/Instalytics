@@ -4,8 +4,11 @@ import requests
 import re
 import shutil
 import boto3
+import time
 
 from datetime import datetime
+from botocore import errorfactory
+
 
 def proxies_file():
 
@@ -23,11 +26,31 @@ def proxies_file():
 
     return proxies
 
-def grabjson(link, chosenproxy):
+def grabjson(link, chosenproxy, useproxy=False):
 
-    proxy, useragent = chosenproxy
+    log = logging.getLogger(__name__)
 
-    resp = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy}, timeout=60)
+    if useproxy == True:
+
+        proxy, useragent = chosenproxy
+
+        try:
+            resp = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy}, timeout=60)
+
+        except requests.exceptions.ProxyError as err:
+            log.error('Proxy not reachable')
+            log.error(err)
+            raise SystemExit
+
+    else:
+
+        resp = requests.get(link, timeout=60)
+
+    if resp.status_code == 404:
+
+        log.info('Page not found, 404: {}'.format(link))
+
+        return None
 
     resp_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', resp.text)
 
@@ -42,39 +65,69 @@ def writejson(id, fetchedjson, s3):
     s3.upload_file('./downloads/json/{}.json'.format(id), 'gvbinsta-test',
                         'json/{}.json'.format(id))
 
+def set_retrieved_time(db, key, value):
 
-class Retrieve:
+    log = logging.getLogger(__name__)
+
+    try:
+
+        resp = db.update_item(
+            Key={
+                key: value
+            },
+            UpdateExpression='SET retrieved_at_time = :rtime',
+            ExpressionAttributeValues={
+                ':rtime': int(time.time())
+            }
+        )
+
+        log.debug(resp)
+
+    except errorfactory.ClientError:
+        log.exception('Exception when updating "retrieved_at_time" in DB')
+        raise SystemExit
+
+    log.debug(resp)
+
+class Retrieve():
 
     """
     Retrieve class retrieves the JSON from Instagram
     """
 
-    def __init__(self):
+    def __init__(self,
+                 useproxy=False,
+                 awsprofile='default',
+                 awsregion='eu-central-1'):
+
         self.log = logging.getLogger(__name__)
         self.proxies = proxies_file()
-        self.s3 = boto3.client('s3')
-        self.dynamo = boto3.resource('dynamodb')
+        self.useproxy = useproxy
+        self.awssession = boto3.session.Session(profile_name=awsprofile, region_name=awsregion)
+        self.s3 = self.awssession.client('s3')
+        self.dynamo = self.awssession.resource('dynamodb')
         self.picdb = self.dynamo.Table('test2')
         self.locdb = self.dynamo.Table('test3')
         self.userdb = self.dynamo.Table('test4')
+
+
 
     def retrieve_location(self, locationid):
 
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
 
-        fetchedjson = grabjson(link, random.choice(self.proxies))
+        fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        writejson(locationid, fetchedjson, self.s3)
+        if fetchedjson != None:
 
-        response = self.locdb.update_item(
-            Key={
-                'id': int(locationid)
-            },
-            UpdateExpression='set retrieved_at_time = :retrtime',
-            ExpressionAttributeValues={
-                ':retrtime': int(datetime.now().strftime('%s'))
-            }
-        )
+            self.log.info('{}: Fetched JSON {}.'.format(locationid,fetchedjson))
+
+            writejson(locationid, fetchedjson, self.s3)
+
+            set_retrieved_time(self.locdb, 'id', int(locationid))
+
+        else:
+            self.log.info('Location {}: No JSON retrieved'.format(locationid))
 
     def retrieve_user(self, userid):
 

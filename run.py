@@ -7,7 +7,7 @@ from app import Extract
 logging.basicConfig(level=logging.INFO)
 
 sr = Search()
-retr = Retrieve()
+retr = Retrieve(useproxy=False, awsprofile='dev')
 ex = Extract()
 
 #pictures = sr.incomplete('picture', 'retrieved')
@@ -15,7 +15,7 @@ ex = Extract()
 
 #retr.retrieve_picture('BHdAPvzBJMT')
 
-#retr.retrieve_location('243768061')
+retr.retrieve_location(1664544623601787)
 
 #retr.retrieve_user('swissglam')
 
@@ -28,6 +28,6 @@ ex = Extract()
 #     retr.retrieve_picture(post)
 #     ex.picture_details(post)
 
-for user in ['world_besttravel']:
-    retr.retrieve_user(user)
-    ex.user_details(user)
+# for user in ['world_besttravel']:
+#     retr.retrieve_user(user)
+#     ex.user_details(user)
