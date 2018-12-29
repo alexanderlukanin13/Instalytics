@@ -7,18 +7,31 @@ from app import Extract
 logging.basicConfig(level=logging.INFO)
 
 sr = Search()
-retr = Retrieve(useproxy=False, awsprofile='dev')
-ex = Extract()
+retr = Retrieve(useproxy=False, awsprofile='default')
+ex = Extract(awsprofile='default')
+
+list = sr.incomplete()
+
+logging.info(list)
+
+for post in list:
+# for post in list[0:1]:
+    try:
+        retr.retrieve_picture(post)
+        ex.picture_details(post)
+        logging.info('%s completed', post)
+    except FileNotFoundError:
+        logging.info('%s file not found', post)
 
 #pictures = sr.incomplete('picture', 'retrieved')
 #print(pictures)
 
-#retr.retrieve_picture('BHdAPvzBJMT')
+#retr.retrieve_picture('BNKBq6LAzjq')
 
-retr.retrieve_location(1664544623601787)
+#retr.retrieve_location(1664544623601787)
 
-#retr.retrieve_user('swissglam')
-
+# retr.retrieve_user('_mo.duinne_')
+# ex.user_details('_mo.duinne_')
 
 # for location in ['1664544623601787']:
 #     retr.retrieve_location(location)

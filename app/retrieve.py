@@ -56,6 +56,32 @@ def grabjson(link, chosenproxy, useproxy=False):
 
     return resp_json
 
+
+def grabimage(s3, pictureid, json, chosenproxy, useproxy=False):
+
+    imagelink = re.findall(r'"display_url":"([^"]+)"', json)
+
+    filename = imagelink[0].split('/')[-1].split('?')[0]
+
+    if useproxy == True:
+
+        proxy, useragent = chosenproxy
+
+        imagefile = requests.get(imagelink[0], headers={"User-Agent": useragent}, proxies={"https": proxy}, timeout=60,
+                                 stream=True)
+
+    else:
+
+        imagefile = requests.get(imagelink[0], timeout=60, stream=True)
+
+
+    with open('./downloads/picture/{}_{}'.format(pictureid, filename), 'wb') as f:
+        shutil.copyfileobj(imagefile.raw, f)
+
+    s3.upload_file('./downloads/picture/{}_{}'.format(pictureid, filename), 'gvbinsta-test',
+                   'pictures/{}_{}'.format(pictureid, filename))
+
+
 def writejson(id, fetchedjson, s3):
 
     with open('./downloads/json/{}.json'.format(id), 'w') as f:
@@ -89,10 +115,26 @@ def set_retrieved_time(db, key, value):
 
     log.debug(resp)
 
+def set_deleted(db, key, value):
+    log = logging.getLogger(__name__)
+
+    resp = db.update_item(
+        Key={
+            key: value
+        },
+        UpdateExpression='SET deleted = :del',
+        ExpressionAttributeValues={
+            ':del': True
+        }
+    )
+
+    log.debug(resp)
+
 class Retrieve():
 
     """
-    Retrieve class retrieves the JSON from Instagram
+    Retrieve class extracts the JSON from Instagram, downloads the picture for posts, saves it locally and uploads
+    it to Amazon S3 storage
     """
 
     def __init__(self,
@@ -124,10 +166,13 @@ class Retrieve():
 
             writejson(locationid, fetchedjson, self.s3)
 
-            set_retrieved_time(self.locdb, 'id', int(locationid))
+            set_retrieved_time(self.locdb, 'id', locationid)
 
         else:
             self.log.info('Location {}: No JSON retrieved'.format(locationid))
+
+            set_deleted(self.locdb, 'id', locationid)
+
 
     def retrieve_user(self, userid):
 
@@ -135,53 +180,39 @@ class Retrieve():
 
         fetchedjson = grabjson(link, random.choice(self.proxies))
 
-        writejson(userid, fetchedjson, self.s3)
+        if fetchedjson != None:
 
-        response = self.userdb.update_item(
-            Key={
-                'username': userid
-            },
-            UpdateExpression='set retrieved_at_time = :retrtime',
-            ExpressionAttributeValues={
-                ':retrtime': int(datetime.now().strftime('%s'))
-            }
-        )
+            self.log.info('{}: Fetched JSON {}.'.format(userid, fetchedjson))
+
+            writejson(userid, fetchedjson, self.s3)
+
+            set_retrieved_time(self.userdb, 'username', userid)
+
+        else:
+
+            self.log.info('Location {}: No JSON retrieved'.format(userid))
+
+            set_deleted(self.userdb, 'username', userid)
+
 
     def retrieve_picture(self, pictureid):
 
         link = 'https://www.instagram.com/p/{}/'.format(pictureid)
 
-        proxy, useragent = random.choice(self.proxies)
+        fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        resp = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy}, timeout=60)
+        if fetchedjson != None:
 
-        resp_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', resp.text)
+            self.log.info('{}: Fetched JSON {}.'.format(pictureid, fetchedjson))
 
-        with open('./downloads/json/{}.json'.format(pictureid), 'w') as f:
-            f.write(datetime.now().strftime('%s') + '\n')
-            f.writelines(resp_json)
+            writejson(pictureid, fetchedjson, self.s3)
 
-        self.s3.upload_file('./downloads/json/{}.json'.format(pictureid), 'gvbinsta-test',
-                            'json/{}.json'.format(pictureid))
+            grabimage(self.s3, pictureid, fetchedjson[0], random.choice(self.proxies), self.useproxy)
 
-        imagelink = re.findall(r'"display_url":"([^"]+)"', resp.text)
+            set_retrieved_time(self.picdb, 'shortcode', pictureid)
 
-        filename = imagelink[0].split('/')[-1].split('?')[0]
+        else:
 
-        imagefile = requests.get(imagelink[0], stream=True)
+            self.log.info('%s: No JSON for picture retrieved', pictureid)
 
-        with open('./downloads/picture/{}_{}'.format(pictureid, filename), 'wb') as f:
-            shutil.copyfileobj(imagefile.raw, f)
-
-        self.s3.upload_file('./downloads/picture/{}_{}'.format(pictureid, filename), 'gvbinsta-test',
-                'pictures/{}_{}'.format(pictureid, filename))
-
-        response = self.picdb.update_item(
-            Key={
-                'shortcode': pictureid
-            },
-            UpdateExpression='set retrieved_at_time = :retrtime',
-            ExpressionAttributeValues={
-                ':retrtime': int(datetime.now().strftime('%s'))
-            }
-        )
+            set_deleted(self.picdb, 'shortcode', pictureid)

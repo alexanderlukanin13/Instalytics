@@ -119,4 +119,14 @@ class Search:
                     self.log.info('Item "LastEvaluatedKey" not available. DB too small. Processing normally')
                     break
 
-        return itemslist
+        returnlist = []
+
+        if category == 'picture':
+            for item in itemslist:
+                returnlist.append(item['shortcode'])
+
+        # if category == 'user':
+
+        # if category == 'location':
+
+        return returnlist

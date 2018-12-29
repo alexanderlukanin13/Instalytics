@@ -26,9 +26,14 @@ def tag_extractor(text, category, keytag):
 
 class Extract:
 
-    def __init__(self):
+    def __init__(self,
+                 awsprofile='default',
+                 awsregion='eu-central-1'):
+
         self.log = logging.getLogger(__name__)
-        self.dynamo = boto3.resource('dynamodb')
+        self.awssession = boto3.session.Session(profile_name=awsprofile, region_name=awsregion)
+        self.s3 = self.awssession.client('s3')
+        self.dynamo = self.awssession.resource('dynamodb')
         self.picdb = self.dynamo.Table('test2')
         self.locdb = self.dynamo.Table('test3')
         self.locdbupdate = self.dynamo.Table('test3-1')
@@ -59,7 +64,7 @@ class Extract:
                         'primary_alias_on_fb']
 
         for element in locationdict:
-            if datastore[element] != ('' or None):
+            if datastore[element] not in ['', None]:
                 location[element] = datastore[element]
 
         # Extract location coordinates as Decimal
@@ -67,7 +72,7 @@ class Extract:
         locationcoordinates = ['lat', 'lng']
 
         for element in locationcoordinates:
-            if datastore[element] != ('' or None):
+            if datastore[element] not in ['', None]:
                 location[element] = Decimal(str(datastore[element]))
 
         # Unpack and extract JSON location address details
@@ -79,7 +84,7 @@ class Extract:
                        'exact_region_match', 'exact_country_match']
 
         for element in addressdict:
-            if addressjson[element] != ('' or None):
+            if addressjson[element] not in ['', None]:
                 location['json_' + element] = addressjson[element]
 
         # Extract location directory details from JSON
@@ -90,11 +95,11 @@ class Extract:
             cityjson = datastore['directory']['city']
 
             for element in directorydict:
-                if countryjson[element] != ('' or None):
+                if countryjson[element] not in ['', None]:
                     location['country_' + element] = countryjson[element]
 
             for element in directorydict:
-                if cityjson[element] != ('' or None):
+                if cityjson[element] not in ['', None]:
                     location['city_' + element] = cityjson[element]
 
         except KeyError as e:
@@ -203,11 +208,15 @@ class Extract:
         picture ={}
 
         # Get json from file
+        try:
+            with open('./downloads/json/{}.json'.format(shortcode), 'r') as f:
+                filetext = f.read().split('\n')
+                rawjson = filetext[1]
+                retrieved_at_time = int(filetext[0])
 
-        with open('./downloads/json/{}.json'.format(shortcode), 'r') as f:
-            filetext = f.read().split('\n')
-            rawjson = filetext[1]
-            retrieved_at_time = int(filetext[0])
+        except FileNotFoundError:
+            self.log.debug('%s: File not found', shortcode)
+            raise
 
         # Transform JSON from file
 
@@ -216,23 +225,24 @@ class Extract:
 
         # Extract picture details from JSON - 1st level
 
-        postlist = ['id', 'gating_info', 'display_url', 'accessibility_caption', 'is_video', 'should_log_client_event',
+        postlist = ['gating_info', 'display_url', 'accessibility_caption', 'is_video', 'should_log_client_event',
                     'caption_is_edited', 'has_ranked_comments', 'comments_disabled', 'taken_at_timestamp', 'is_ad']
 
         for element in postlist:
             try:
-                if datastore[element] != ('' or None):
+                if datastore[element] not in ['', None]:
                     picture[element] = datastore[element]
             except KeyError:
                 self.log.debug('Picture {}: {} not available within post'.format(shortcode, element))
 
+        picture['id'] = int(datastore['id'])
 
         # Extract picture details from JSON - Size details
 
         sizelist = ['height', 'width']
 
         for element in sizelist:
-            if datastore['dimensions'][element] != ('' or None):
+            if datastore['dimensions'][element] not in ['', None]:
                 picture['size_' + element] = datastore['dimensions'][element]
 
 
@@ -280,7 +290,7 @@ class Extract:
         # Extract picture details from JSON - Owner and did he/she answer comments
 
         picture['owner'] = datastore['owner']['username']
-        picture['ownerid'] = datastore['owner']['id']
+        picture['ownerid'] = int(datastore['owner']['id'])
 
         try:
             if picture['owner'] in picture['commenters']:
@@ -304,7 +314,7 @@ class Extract:
         # Extract picture details from JSON - location
 
         try:
-            picture['location_id'] = datastore['location']['id']
+            picture['location_id'] = int(datastore['location']['id'])
 
         except TypeError:
             self.log.debug('Picture {}: No location available'.format(shortcode))
@@ -396,19 +406,23 @@ class Extract:
 
         # Extract location details & timestamp
         try:
-            location = datastore['location']['id']
+            location = int(datastore['location']['id'])
 
             self.locdb.put_item(
                 Item={
-                    'id': int(location),
+                    'id': location,
                      'discovered_at_time': retrieved_at_time
                 },
                 ConditionExpression='attribute_not_exists(id)'
             )
 
+        except TypeError:
+            self.log.info('%s: No location availabe', shortcode)
+
         except errorfactory.ClientError as e:
             if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-                self.log.debug('Entry {} already exists in the database'.format(location))
+                self.log.debug('Entry {} already exists in the database'.format(shortcode))
+
             else:
                 raise
 
@@ -416,7 +430,7 @@ class Extract:
         # Extract user details & timestamp
         try:
             username = datastore['owner']['username']
-            userid = datastore['owner']['id']
+            userid = int(datastore['owner']['id'])
 
             self.userdb.put_item(
                 Item={
@@ -429,7 +443,7 @@ class Extract:
 
         except errorfactory.ClientError as e:
             if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-                self.log.debug('Entry {} already exists in the database'.format(location))
+                self.log.debug('%s: Entry already exists in the database', shortcode)
             else:
                 raise
 
@@ -456,25 +470,27 @@ class Extract:
 
         userlist = ['biography', 'business_category_name', 'business_email', 'business_phone_number',
                     'connected_fb_page', 'country_block', 'external_url', 'full_name', 'has_channel',
-                    'highlight_reel_count', 'id', 'is_business_account', 'is_joined_recently', 'is_private',
+                    'highlight_reel_count', 'is_business_account', 'is_joined_recently', 'is_private',
                     'is_verified', 'profile_pic_url_hd']
 
         for element in userlist:
             try:
-                if datastore[element] != ('' or None):
+                if datastore[element] not in ['', None]:
                     user[element] = datastore[element]
             except KeyError:
                 self.log.debug('User {}: {} not available within post'.format(user, element))
 
+        user['id'] = int(datastore['id'])
+
         # Extract user details from JSON - business details
 
-        if datastore['business_address_json'] != ('' or None):
+        if datastore['business_address_json'] not in ['', None]:
             busaddrjson = json.loads(datastore['business_address_json'])
 
             baddrlist = ['street_address', 'zip_code', 'city_name', 'region_name', 'country_code']
 
             for element in baddrlist:
-                if busaddrjson[element] != ('' or None):
+                if busaddrjson[element] not in ['', None]:
                     user['json_' + element] = busaddrjson[element]
 
 
