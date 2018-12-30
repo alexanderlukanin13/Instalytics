@@ -152,8 +152,6 @@ class Retrieve():
         self.locdb = self.dynamo.Table('test3')
         self.userdb = self.dynamo.Table('test4')
 
-
-
     def retrieve_location(self, locationid):
 
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)

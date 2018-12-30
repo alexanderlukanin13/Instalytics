@@ -34,7 +34,7 @@ class Search:
         self.userdb = self.dynamo.Table('test4')
 
     def incomplete(self,
-                   category='picture',
+                   category=None,
                    step='discovered',
                    getitems=1000):
 
@@ -45,30 +45,39 @@ class Search:
         lastkey = readlastkey(category)
         print(lastkey)
 
+        if category == 'picture':
+            db = self.picdb
+        elif category == 'location':
+            db = self.locdb
+        elif category == 'user':
+            db = self.userdb
+        elif category == None:
+            raise ValueError('Specify the category')
+        else:
+            raise ValueError('Wrong category chosen')
+
+        dbkey = {'picture': 'shortcode',
+                 'location': 'id',
+                 'user': 'username'}
+
         while retrieveditems < getitems:
 
             if lastkey != None:
                 try:
-                    if category == 'picture' and step == 'discovered':
-                        newresponse = self.picdb.scan(
-                            FilterExpression=Attr('retrieved_at_time').not_exists(),
-                            ExclusiveStartKey={'shortcode': lastkey}
+                    if step == 'discovered':
+                        newresponse = db.scan(
+                            FilterExpression=Attr('retrieved_at_time').not_exists() &
+                                             Attr('deleted').not_exists(),
+                            ExclusiveStartKey={dbkey[category]: lastkey}
                         )
 
-                    elif category == 'picture' and step == 'retrieved':
-                        newresponse = self.picdb.scan(
+                    elif step == 'retrieved':
+                        newresponse = db.scan(
                             FilterExpression=Attr('processed_at_time').not_exists() &
+                                             Attr('deleted').not_exists() &
                                              Attr('retrieved_at_time').exists(),
-                            ExclusiveStartKey={'shortcode': lastkey}
+                            ExclusiveStartKey={dbkey[category]: lastkey}
                         )
-
-                    #elif category == 'user' and step == 'discovered':
-
-                    #elif category == 'user' and step == 'retrieved':
-
-                    #elif category == 'location' and step == 'discovered':
-
-                    #elif category == 'location' and step == 'retrieved':
 
                     retrieveditems += newresponse['Count']
                     scanneditems += newresponse['ScannedCount']
@@ -92,14 +101,16 @@ class Search:
 
             if lastkey == None:
                 try:
-                    if category == 'picture' and step == 'discovered':
-                        response = self.picdb.scan(
-                            FilterExpression=Attr('retrieved_at_time').not_exists()
+                    if step == 'discovered':
+                        response = db.scan(
+                            FilterExpression=Attr('retrieved_at_time').not_exists() &
+                                             Attr('deleted').not_exists()
                         )
 
-                    elif category == 'picture' and step == 'retrieved':
-                        response = self.picdb.scan(
+                    elif step == 'retrieved':
+                        response = db.scan(
                             FilterExpression=Attr('processed_at_time').not_exists() &
+                                             Attr('deleted').not_exists() &
                                              Attr('retrieved_at_time').exists(),
                         )
 
@@ -121,12 +132,7 @@ class Search:
 
         returnlist = []
 
-        if category == 'picture':
-            for item in itemslist:
-                returnlist.append(item['shortcode'])
-
-        # if category == 'user':
-
-        # if category == 'location':
+        for item in itemslist:
+            returnlist.append(item[dbkey[category]])
 
         return returnlist
