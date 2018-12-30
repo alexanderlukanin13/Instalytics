@@ -5,6 +5,7 @@ import re
 import shutil
 import boto3
 import time
+import multiprocessing as mp
 
 from datetime import datetime
 from botocore import errorfactory
@@ -153,12 +154,13 @@ class Retrieve():
         self.userdb = self.dynamo.Table('test4')
 
     def retrieve_location(self, locationid):
+        self.log.info('%s: Starting with retrieving location JSON', locationid)
 
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
 
         fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        if fetchedjson != None:
+        if fetchedjson != []:
 
             self.log.info('{}: Fetched JSON {}.'.format(locationid,fetchedjson))
 
@@ -176,9 +178,9 @@ class Retrieve():
 
         link = 'https://www.instagram.com/{}/'.format(userid)
 
-        fetchedjson = grabjson(link, random.choice(self.proxies))
+        fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        if fetchedjson != None:
+        if fetchedjson != []:
 
             self.log.info('{}: Fetched JSON {}.'.format(userid, fetchedjson))
 
@@ -199,7 +201,7 @@ class Retrieve():
 
         fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        if fetchedjson != None:
+        if fetchedjson != []:
 
             self.log.info('{}: Fetched JSON {}.'.format(pictureid, fetchedjson))
 

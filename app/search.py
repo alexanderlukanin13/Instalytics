@@ -1,16 +1,17 @@
 import logging
 import boto3
 import os
+import json
 
 from boto3.dynamodb.conditions import Attr
 from botocore import errorfactory
 
 
-def readlastkey(category):
+def readlastkey(category, step):
 
     try:
-        with open('./tmp/{}-lastkey.tmp'.format(category), 'r') as f:
-            lastkey = f.readline()
+        with open('./tmp/{}-{}-lastkey.tmp'.format(category, step), 'r') as f:
+            lastkey = json.loads(f.read())
         return lastkey
 
     except FileNotFoundError:
@@ -18,11 +19,10 @@ def readlastkey(category):
         return lastkey
 
 
-def savelastkey(category, lastkey):
-
-    with open('./tmp/{}-lastkey.tmp'.format(category), 'w') as f:
-        f.writelines(lastkey)
-
+def savelastkey(category, step, lastkey):
+    lastkeyjson = json.dumps(lastkey)
+    with open('./tmp/{}-{}-lastkey.tmp'.format(category, step), 'w') as f:
+        f.write(lastkeyjson)
 
 class Search:
 
@@ -33,6 +33,55 @@ class Search:
         self.locdb = self.dynamo.Table('test3')
         self.userdb = self.dynamo.Table('test4')
 
+    def scan_key_with_filter(self,
+                             db,
+                             key,
+                             used_filter,
+                             items=1000):
+
+        filter_expressions = {
+            'discovered': Attr('retrieved_at_time').not_exists() &
+                          Attr('deleted').not_exists(),
+            'retrieved': Attr('processed_at_time').not_exists() &
+                         Attr('deleted').not_exists() &
+                         Attr('retrieved_at_time').exists()
+        }
+
+        resultlist = []
+        retritem = 0
+        scanneditem = 0
+        consumedcapacity = 0
+        lastkey = None
+
+        while retritem < items:
+            if lastkey != None:
+                response = db.scan(
+                    ProjectionExpression=key,
+                    FilterExpression=filter_expressions[used_filter],
+                    ReturnConsumedCapacity='TOTAL',
+                    ExclusiveStartKey=lastkey
+                )
+            if lastkey == None:
+                response = db.scan(
+                    ProjectionExpression=key,
+                    FilterExpression=filter_expressions[used_filter],
+                    ReturnConsumedCapacity='TOTAL'
+                )
+
+            resultlist.extend(response['Items'])
+            retritem += response['Count']
+            scanneditem += response['ScannedCount']
+            consumedcapacity += response['ConsumedCapacity']['CapacityUnits']
+            self.log.info('%s out of %s DB items received', retritem, scanneditem)
+
+            try:
+                lastkey = response['LastEvaluatedKey']
+            except:
+                self.log.info('After %s scanned itmens. No more last keys', scanneditem)
+                break
+
+        return resultlist
+
     def incomplete(self,
                    category=None,
                    step='discovered',
@@ -42,8 +91,7 @@ class Search:
         scanneditems = 0
         itemslist = []
 
-        lastkey = readlastkey(category)
-        print(lastkey)
+        lastkey = readlastkey(category, step)
 
         if category == 'picture':
             db = self.picdb
@@ -68,7 +116,7 @@ class Search:
                         newresponse = db.scan(
                             FilterExpression=Attr('retrieved_at_time').not_exists() &
                                              Attr('deleted').not_exists(),
-                            ExclusiveStartKey={dbkey[category]: lastkey}
+                            ExclusiveStartKey={dbkey[category]: lastkey[dbkey[category]]}
                         )
 
                     elif step == 'retrieved':
@@ -76,7 +124,12 @@ class Search:
                             FilterExpression=Attr('processed_at_time').not_exists() &
                                              Attr('deleted').not_exists() &
                                              Attr('retrieved_at_time').exists(),
-                            ExclusiveStartKey={dbkey[category]: lastkey}
+                            ExclusiveStartKey={dbkey[category]: lastkey[dbkey[category]]}
+                        )
+
+                    elif step == 'all':
+                        newresponse = db.scan(
+                            ExclusiveStartKey={dbkey[category]: lastkey[dbkey[category]]}
                         )
 
                     retrieveditems += newresponse['Count']
@@ -91,11 +144,11 @@ class Search:
 
                 try:
                     lastkey = newresponse['LastEvaluatedKey']
-                    savelastkey(category, lastkey)
+                    savelastkey(category, step, lastkey)
                     self.log.debug('LastEvaluatedKey is {}, {} items retrieved'.format(lastkey, retrieveditems))
 
                 except KeyError as e:
-                    os.remove('./tmp/{}-lastkey.tmp'.format(category))
+                    os.remove('./tmp/{}-{}-lastkey.tmp'.format(category, step))
                     self.log.info('DB scan completed. No further LastEvaluatedKey')
                     break
 
@@ -113,6 +166,8 @@ class Search:
                                              Attr('deleted').not_exists() &
                                              Attr('retrieved_at_time').exists(),
                         )
+                    elif step == 'all':
+                        response = db.scan()
 
                     retrieveditems += response['Count']
                     scanneditems += response['ScannedCount']
@@ -125,6 +180,7 @@ class Search:
 
                 try:
                     lastkey = response['LastEvaluatedKey']
+                    savelastkey(category, step, lastkey)
                     self.log.debug('LastEvaluatedKey is {}, {} items retrieved'.format(lastkey, retrieveditems))
                 except KeyError as e:
                     self.log.info('Item "LastEvaluatedKey" not available. DB too small. Processing normally')
@@ -135,4 +191,4 @@ class Search:
         for item in itemslist:
             returnlist.append(item[dbkey[category]])
 
-        return returnlist
+        return returnlist[:getitems]

@@ -77,15 +77,15 @@ class Extract:
 
         # Unpack and extract JSON location address details
 
-        if datastore['address_json'] != '':
+        if datastore['address_json'] not in ['', None]:
             addressjson = json.loads(datastore['address_json'])
 
-        addressdict = ['street_address', 'zip_code', 'city_name', 'region_name', 'country_code', 'exact_city_match',
-                       'exact_region_match', 'exact_country_match']
+            addressdict = ['street_address', 'zip_code', 'city_name', 'region_name', 'country_code', 'exact_city_match',
+                           'exact_region_match', 'exact_country_match']
 
-        for element in addressdict:
-            if addressjson[element] not in ['', None]:
-                location['json_' + element] = addressjson[element]
+            for element in addressdict:
+                if addressjson[element] not in ['', None]:
+                    location['json_' + element] = addressjson[element]
 
         # Extract location directory details from JSON
 
@@ -152,54 +152,57 @@ class Extract:
         # West 46.132250, 5.955882
         # East 46.615055, 10.492088
 
-        if 5.955882 < location['lng'] < 10.492088 and 45.817933 < location['lat'] < 47.808463:
+        try:
+            if 5.955882 < location['lng'] < 10.492088 and 45.817933 < location['lat'] < 47.808463:
 
-            pictures = []
+                pictures = []
 
-            for pic in range(len(datastore['edge_location_to_media']['edges'])):
-                pictures.append((datastore['edge_location_to_media']['edges'][pic]['node']['shortcode'],
-                                datastore['edge_location_to_media']['edges'][pic]['node']['owner']['id']))
+                for pic in range(len(datastore['edge_location_to_media']['edges'])):
+                    pictures.append((datastore['edge_location_to_media']['edges'][pic]['node']['shortcode'],
+                                    datastore['edge_location_to_media']['edges'][pic]['node']['owner']['id']))
 
-            self.log.debug(pictures)
+                self.log.debug(pictures)
 
-        # Upload extracted pictures
+            # Upload extracted pictures
 
-            failedpictures = []
-            uploadedpictures = []
+                failedpictures = []
+                uploadedpictures = []
 
-            for pic in pictures:
-                try:
-                    self.picdb.put_item(
-                        Item={
-                            'shortcode': pic[0],
-                            'userid': pic[1],
-                            'discovered_at_time': retrieved_at_time
-                        },
-                        ConditionExpression = 'attribute_not_exists(#sc)',
-                        ExpressionAttributeNames = {
-                            '#sc': 'shortcode'
-                        },
-                    )
-                    uploadedpictures.append(pic[0])
-                except errorfactory.ClientError as e:
-                    if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-                        failedpictures.append(pic[0])
-                        self.log.debug('Entry {} already exists in the database'.format(pic))
-                    else:
-                        raise
+                for pic in pictures:
+                    try:
+                        self.picdb.put_item(
+                            Item={
+                                'shortcode': pic[0],
+                                'userid': pic[1],
+                                'discovered_at_time': retrieved_at_time
+                            },
+                            ConditionExpression = 'attribute_not_exists(#sc)',
+                            ExpressionAttributeNames = {
+                                '#sc': 'shortcode'
+                            },
+                        )
+                        uploadedpictures.append(pic[0])
+                    except errorfactory.ClientError as e:
+                        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                            failedpictures.append(pic[0])
+                            self.log.debug('Entry {} already exists in the database'.format(pic))
+                        else:
+                            raise
 
-            if len(uploadedpictures) > 0:
-                self.log.info('For {} the following {} pictures were added: {}'.format(locationid,
-                                                                                       len(uploadedpictures),
-                                                                                       uploadedpictures))
+                if len(uploadedpictures) > 0:
+                    self.log.info('For {} the following {} pictures were added: {}'.format(locationid,
+                                                                                           len(uploadedpictures),
+                                                                                           uploadedpictures))
+                else:
+                    self.log.info('No new pictures from location {} extracted'.format(locationid))
+
+                self.log.debug('The following pictures already exist in the DB: {}'.format(failedpictures))
+
             else:
-                self.log.info('No new pictures from location {} extracted'.format(locationid))
-
-            self.log.debug('The following pictures already exist in the DB: {}'.format(failedpictures))
-
-        else:
-            self.log.info('No pictures for location {} have been extracted as they are likely outside Switzerland'
-                          .format(locationid))
+                self.log.info('No pictures for location {} have been extracted as they are likely outside Switzerland'
+                              .format(locationid))
+        except KeyError:
+            self.log.info('%s: Location has no geo coordinates', locationid)
 
     def picture_details(self, shortcode):
 
@@ -545,7 +548,7 @@ class Extract:
             Item={
                 'username': username,
                 'at_time': int(datetime.now().strftime('%s')),
-                'userid': int(picture['node']['owner']['id']),
+                'id': int(datastore['id']),
                 'follow_count': user['follow_count'],
                 'followed_by_count': user['followed_by_count'],
                 'posts_count': user['posts_count']

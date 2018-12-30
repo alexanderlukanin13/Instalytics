@@ -1,4 +1,5 @@
 import logging
+import multiprocessing as mp
 
 from app import Retrieve
 from app import Search
@@ -10,19 +11,28 @@ sr = Search()
 retr = Retrieve(useproxy=True, awsprofile='default')
 ex = Extract(awsprofile='default')
 
-list = sr.incomplete(category='picture')
+list = sr.incomplete(category='user', step='all', getitems=100000)
 
-logging.info(list)
-logging.info(len(list))
+def mp_retrieve(user):
+    retr.retrieve_user(user)
 
-for post in list:
-# for post in list[0:1]:
-    try:
-        retr.retrieve_picture(post)
-        ex.picture_details(post)
-        logging.info('%s completed', post)
-    except FileNotFoundError:
-        logging.info('%s file not found', post)
+pool = mp.Pool(processes=10)
+
+pool.map(mp_retrieve, list)
+
+# list = sr.incomplete(category='picture')
+#
+# logging.info(list)
+# logging.info(len(list))
+#
+# for post in list:
+# # for post in list[0:1]:
+#     try:
+#         retr.retrieve_picture(post)
+#         ex.picture_details(post)
+#         logging.info('%s completed', post)
+#     except FileNotFoundError:
+#         logging.info('%s file not found', post)
 
 #pictures = sr.incomplete('picture', 'retrieved')
 #print(pictures)
