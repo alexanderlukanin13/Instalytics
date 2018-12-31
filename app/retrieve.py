@@ -212,9 +212,9 @@ class Retrieve():
         self.awssession = boto3.session.Session(profile_name=awsprofile, region_name=awsregion)
         self.s3_link = self.awssession.client('s3')
         self.dynamo = self.awssession.resource('dynamodb')
-        self.picdb = self.dynamo.Table('test2')
-        self.locdb = self.dynamo.Table('test3')
-        self.userdb = self.dynamo.Table('test4')
+        self.picdb = self.dynamo.Table('te_post')
+        self.locdb = self.dynamo.Table('te_location')
+        self.userdb = self.dynamo.Table('te_user')
         self.storage_directory = storage_directory
         self.storage_json_location = 'json/location'
         self.storage_json_user = 'json/user'
@@ -227,10 +227,14 @@ class Retrieve():
         :param locationid: Location ID
         :return: None
         """
+        fetchedjson = ''
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
-        fetchedjson = grabjson(link,
-                               random.choice(self.proxies),
-                               self.useproxy)
+        try:
+            fetchedjson = grabjson(link,
+                                   random.choice(self.proxies),
+                                   self.useproxy)
+        except requests.exceptions.HTTPError:
+            self.log.exception('Http Error when retrieving the JSON')
 
         if fetchedjson not in ['', None]:
             self.log.debug('%s: Fetched JSON %s.', locationid, fetchedjson)
