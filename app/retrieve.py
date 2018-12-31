@@ -100,7 +100,8 @@ def grabimage(file_directory,
 def writejson(file_directory,
               id,
               fetchedjson,
-              s3):
+              s3,
+              s3_directory):
     log = logging.getLogger(__name__)
 
     if not os.path.exists(file_directory):
@@ -112,8 +113,8 @@ def writejson(file_directory,
     except:
         log.exception('%s could not be written, check for error. JSON is: %s', id, fetchedjson)
 
-    s3.upload_file('./downloads/json/{}.json'.format(id), 'gvbinsta-test',
-                        'json/{}.json'.format(id))
+    s3.upload_file('{}/{}.json'.format(file_directory, id), 'gvbinsta-test',
+                        '{}/{}.json'.format(s3_directory, id))
 
 def set_retrieved_time(db, key, value):
 
@@ -195,7 +196,7 @@ class Retrieve():
 
             self.log.debug('{}: Fetched JSON {}.'.format(locationid,fetchedjson))
             file_storage_json_location = os.path.join(self.storage_directory, self.storage_json_location)
-            writejson(file_storage_json_location, locationid, fetchedjson, self.s3)
+            writejson(file_storage_json_location, locationid, fetchedjson, self.s3, self.storage_json_location)
 
             set_retrieved_time(self.locdb, 'id', locationid)
 
@@ -216,7 +217,7 @@ class Retrieve():
             self.log.debug('{}: Fetched JSON {}.'.format(userid, fetchedjson))
 
             file_storage_json_user = os.path.join(self.storage_directory, self.storage_json_user)
-            writejson(file_storage_json_user, userid, fetchedjson, self.s3)
+            writejson(file_storage_json_user, userid, fetchedjson, self.s3, self.storage_json_user)
 
             set_retrieved_time(self.userdb, 'username', userid)
 
@@ -238,7 +239,7 @@ class Retrieve():
             self.log.debug('{}: Fetched JSON {}.'.format(pictureid, fetchedjson))
 
             file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
-            writejson(file_storage_json_post, pictureid, fetchedjson, self.s3)
+            writejson(file_storage_json_post, pictureid, fetchedjson, self.s3, self.storage_json_post)
 
             file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
             try:
