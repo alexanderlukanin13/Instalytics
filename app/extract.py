@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 import boto3
 
 from datetime import datetime
@@ -28,7 +29,8 @@ class Extract:
 
     def __init__(self,
                  awsprofile='default',
-                 awsregion='eu-central-1'):
+                 awsregion='eu-central-1',
+                 storage_directory='.'):
 
         self.log = logging.getLogger(__name__)
         self.awssession = boto3.session.Session(profile_name=awsprofile, region_name=awsregion)
@@ -39,6 +41,11 @@ class Extract:
         self.locdbupdate = self.dynamo.Table('test3-1')
         self.userdb = self.dynamo.Table('test4')
         self.userdbupdate = self.dynamo.Table('test4-1')
+        self.storage_directory = storage_directory
+        self.storage_json_location = 'downloads/json/location'
+        self.storage_json_user = 'downloads/json/user'
+        self.storage_json_post = 'downloads/json/post'
+        self.storage_pictures = 'downloads/pictures'
 
     def location_details(self, locationid):
 
@@ -47,8 +54,8 @@ class Extract:
         location = {}
 
         #Get json from file
-
-        with open('./downloads/json/{}.json'.format(locationid), 'r') as f:
+        file_storage_json_location = os.path.join(self.storage_directory, self.storage_json_location)
+        with open('{}/{}.json'.format(file_storage_json_location, locationid), 'r') as f:
             filetext = f.read().split('\n')
             rawjson = filetext[1]
             retrieved_at_time = int(filetext[0])
@@ -212,7 +219,8 @@ class Extract:
 
         # Get json from file
         try:
-            with open('./downloads/json/{}.json'.format(shortcode), 'r') as f:
+            file_storage_json_picture = os.path.join(self.storage_directory, self.storage_json_post)
+            with open('{}/{}.json'.format(file_storage_json_picture, shortcode), 'r') as f:
                 filetext = f.read().split('\n')
                 rawjson = filetext[1]
                 retrieved_at_time = int(filetext[0])
@@ -458,8 +466,8 @@ class Extract:
         user = {}
 
         # Get json from file
-
-        with open('./downloads/json/{}.json'.format(username), 'r') as f:
+        file_storage_json_user= os.path.join(self.storage_directory, self.storage_json_user)
+        with open('{}/{}.json'.format(file_storage_json_user, username), 'r') as f:
             filetext = f.read().split('\n')
             rawjson = filetext[1]
             retrieved_at_time = int(filetext[0])

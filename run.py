@@ -4,8 +4,8 @@ This is the runner module which is the main module to run Instalytics
 
 import multiprocessing as mp
 import logging
-import boto3
 import argparse
+import boto3
 
 from app import Retrieve
 from app import Search
@@ -78,8 +78,8 @@ if __name__ == '__main__':
 
     # Initialize profiles
     sr = Search()
-    retr = Retrieve(useproxy=True, awsprofile='default')
-    ex = Extract(awsprofile='default')
+    retr = Retrieve(useproxy=True, awsprofile='default', storage_directory='/mnt')
+    ex = Extract(awsprofile='default', storage_directory='/mnt')
     dynamo = boto3.resource('dynamodb')
     tbl_user = dynamo.Table('test4')
     tbl_pictures = dynamo.Table('test2')
@@ -171,7 +171,7 @@ if __name__ == '__main__':
             picture_number, picture_name = picture
             logging.info('[%s]/[%s]: %s - Extracting user details',
                          picture_number, extrpictures_total, picture_name['shortcode'])
-            ex.picture_details(picture['shortcode'])
+            ex.picture_details(picture_name['shortcode'])
 
         logging.info(60 * '*')
         logging.info('=== PICTURES - EXTRACTING COMPLETED ===')

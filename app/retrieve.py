@@ -5,7 +5,7 @@ import re
 import shutil
 import boto3
 import time
-import multiprocessing as mp
+import os
 
 from datetime import datetime
 from botocore import errorfactory
@@ -65,7 +65,12 @@ def grabjson(link, chosenproxy, useproxy=False):
     return resp_json
 
 
-def grabimage(s3, pictureid, json, chosenproxy, useproxy=False):
+def grabimage(file_directory,
+              s3,
+              pictureid,
+              json,
+              chosenproxy,
+              useproxy=False):
 
     imagelink = re.findall(r'"display_url":"([^"]+)"', json)
 
@@ -82,19 +87,25 @@ def grabimage(s3, pictureid, json, chosenproxy, useproxy=False):
 
         imagefile = requests.get(imagelink[0], timeout=60, stream=True)
 
-
-    with open('./downloads/picture/{}_{}'.format(pictureid, filename), 'wb') as f:
+    if not os.path.exists(file_directory):
+        os.makedirs(file_directory)
+    with open('{}/{}_{}'.format(file_directory, pictureid, filename), 'wb') as f:
         shutil.copyfileobj(imagefile.raw, f)
 
-    s3.upload_file('./downloads/picture/{}_{}'.format(pictureid, filename), 'gvbinsta-test',
+    s3.upload_file('{}/{}_{}'.format(file_directory, pictureid, filename), 'gvbinsta-test',
                    'pictures/{}_{}'.format(pictureid, filename))
 
 
-def writejson(id, fetchedjson, s3):
+def writejson(file_directory,
+              id,
+              fetchedjson,
+              s3):
     log = logging.getLogger(__name__)
 
+    if not os.path.exists(file_directory):
+        os.makedirs(file_directory)
     try:
-        with open('./downloads/json/{}.json'.format(id), 'w') as f:
+        with open('{}/{}.json'.format(file_directory, id), 'w') as f:
             f.write(datetime.now().strftime('%s') + '\n')
             f.write(fetchedjson[0])
     except:
@@ -153,7 +164,8 @@ class Retrieve():
     def __init__(self,
                  useproxy=False,
                  awsprofile='default',
-                 awsregion='eu-central-1'):
+                 awsregion='eu-central-1',
+                 storage_directory ='.'):
 
         self.log = logging.getLogger(__name__)
         self.proxies = proxies_file()
@@ -164,18 +176,25 @@ class Retrieve():
         self.picdb = self.dynamo.Table('test2')
         self.locdb = self.dynamo.Table('test3')
         self.userdb = self.dynamo.Table('test4')
+        self.storage_directory = storage_directory
+        self.storage_json_location = 'downloads/json/location'
+        self.storage_json_user = 'downloads/json/user'
+        self.storage_json_post = 'downloads/json/post'
+        self.storage_pictures = 'downloads/pictures'
 
     def retrieve_location(self, locationid):
 
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
 
-        fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
+        fetchedjson = grabjson(link,
+                               random.choice(self.proxies),
+                               self.useproxy)
 
         if fetchedjson not in ['', None]:
 
             self.log.debug('{}: Fetched JSON {}.'.format(locationid,fetchedjson))
-
-            writejson(locationid, fetchedjson, self.s3)
+            file_storage_json_location = os.path.join(self.storage_directory, self.storage_json_location)
+            writejson(file_storage_json_location, locationid, fetchedjson, self.s3)
 
             set_retrieved_time(self.locdb, 'id', locationid)
 
@@ -195,7 +214,8 @@ class Retrieve():
 
             self.log.debug('{}: Fetched JSON {}.'.format(userid, fetchedjson))
 
-            writejson(userid, fetchedjson, self.s3)
+            file_storage_json_user = os.path.join(self.storage_directory, self.storage_json_user)
+            writejson(file_storage_json_user, userid, fetchedjson, self.s3)
 
             set_retrieved_time(self.userdb, 'username', userid)
 
@@ -216,9 +236,20 @@ class Retrieve():
 
             self.log.debug('{}: Fetched JSON {}.'.format(pictureid, fetchedjson))
 
-            writejson(pictureid, fetchedjson, self.s3)
+            file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
+            writejson(file_storage_json_post, pictureid, fetchedjson, self.s3)
 
-            grabimage(self.s3, pictureid, fetchedjson[0], random.choice(self.proxies), self.useproxy)
+            file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
+            try:
+                grabimage(file_storage_pictures,
+                          self.s3,
+                          pictureid,
+                          fetchedjson[0],
+                          random.choice(self.proxies),
+                          self.useproxy)
+            except:
+                self.log.exception('Check the exception with the following: %s, %s, %s',
+                                   pictureid, fetchedjson)
 
             set_retrieved_time(self.picdb, 'shortcode', pictureid)
 
