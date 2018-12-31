@@ -198,7 +198,7 @@ class Retrieve():
             file_storage_json_location = os.path.join(self.storage_directory, self.storage_json_location)
             writejson(file_storage_json_location, locationid, fetchedjson, self.s3, self.storage_json_location)
 
-            set_retrieved_time(self.locdb, 'id', int(locationid))
+            set_retrieved_time(self.locdb, 'id', locationid)
 
         else:
             self.log.debug('Location {}: No JSON retrieved'.format(locationid))

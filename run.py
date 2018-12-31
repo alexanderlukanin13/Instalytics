@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # one location
     if args.command == 'get' and args.category == 'location':
         logging.info('%s: Extracting location details', args.key)
-        retr.retrieve_location(args.key)
+        retr.retrieve_location(int(args.key))
         ex.location_details(args.key)
 
     # one pictures

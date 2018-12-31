@@ -11,14 +11,14 @@ sr = Search()
 retr = Retrieve(useproxy=True, awsprofile='default')
 ex = Extract(awsprofile='default')
 
-list = sr.incomplete(category='user', step='all', getitems=100000)
-
-def mp_retrieve(user):
-    retr.retrieve_user(user)
-
-pool = mp.Pool(processes=10)
-
-pool.map(mp_retrieve, list)
+# list = sr.incomplete(category='user', step='all', getitems=100000)
+#
+# def mp_retrieve(user):
+#     retr.retrieve_user(user)
+#
+# pool = mp.Pool(processes=10)
+#
+# pool.map(mp_retrieve, list)
 
 # list = sr.incomplete(category='picture')
 #
@@ -39,7 +39,7 @@ pool.map(mp_retrieve, list)
 
 #retr.retrieve_picture('BNKBq6LAzjq')
 
-#retr.retrieve_location(1664544623601787)
+retr.retrieve_location(7)
 
 # retr.retrieve_user('_mo.duinne_')
 # ex.user_details('_mo.duinne_')
