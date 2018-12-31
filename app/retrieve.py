@@ -67,6 +67,7 @@ def grabjson(link, chosenproxy, useproxy=False):
 
 def grabimage(file_directory,
               s3,
+              s3_file_directory,
               pictureid,
               json,
               chosenproxy,
@@ -93,7 +94,7 @@ def grabimage(file_directory,
         shutil.copyfileobj(imagefile.raw, f)
 
     s3.upload_file('{}/{}_{}'.format(file_directory, pictureid, filename), 'gvbinsta-test',
-                   'pictures/{}_{}'.format(pictureid, filename))
+                   '{}/{}_{}'.format(s3_file_directory, pictureid, filename))
 
 
 def writejson(file_directory,
@@ -243,6 +244,7 @@ class Retrieve():
             try:
                 grabimage(file_storage_pictures,
                           self.s3,
+                          self.storage_pictures,
                           pictureid,
                           fetchedjson[0],
                           random.choice(self.proxies),
