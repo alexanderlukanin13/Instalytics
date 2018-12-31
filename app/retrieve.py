@@ -36,7 +36,11 @@ def grabjson(link, chosenproxy, useproxy=False):
         proxy, useragent = chosenproxy
 
         try:
+            jsonstarttime = time.time()
             resp = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy}, timeout=60)
+            # resp = requests.get(link, headers={"User-Agent": useragent, "Connection": "close"},
+            #                     proxies={"https": proxy}, timeout=60)
+            jsonendtime = time.time()
 
         except requests.exceptions.ProxyError as err:
             log.error('Proxy not reachable')
@@ -44,8 +48,9 @@ def grabjson(link, chosenproxy, useproxy=False):
             raise SystemExit
 
     else:
-
+        jsonstarttime = time.time()
         resp = requests.get(link, timeout=60)
+        jsonendtime = time.time()
 
     if resp.status_code == 404:
 
@@ -54,6 +59,8 @@ def grabjson(link, chosenproxy, useproxy=False):
         return None
 
     resp_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', resp.text)
+    jsontime = jsonendtime - jsonstarttime
+    log.debug('%s: Time to retrieve (%s)', jsontime, link)
 
     return resp_json
 
@@ -84,10 +91,14 @@ def grabimage(s3, pictureid, json, chosenproxy, useproxy=False):
 
 
 def writejson(id, fetchedjson, s3):
+    log = logging.getLogger(__name__)
 
-    with open('./downloads/json/{}.json'.format(id), 'w') as f:
-        f.write(datetime.now().strftime('%s') + '\n')
-        f.writelines(fetchedjson)
+    try:
+        with open('./downloads/json/{}.json'.format(id), 'w') as f:
+            f.write(datetime.now().strftime('%s') + '\n')
+            f.write(fetchedjson[0])
+    except:
+        log.exception('%s could not be written, check for error. JSON is: %s', id, fetchedjson)
 
     s3.upload_file('./downloads/json/{}.json'.format(id), 'gvbinsta-test',
                         'json/{}.json'.format(id))
@@ -123,9 +134,10 @@ def set_deleted(db, key, value):
         Key={
             key: value
         },
-        UpdateExpression='SET deleted = :del',
+        UpdateExpression='SET deleted = :del, retrieved_at_time = :time',
         ExpressionAttributeValues={
-            ':del': True
+            ':del': True,
+            ':time': int(time.time())
         }
     )
 
@@ -154,22 +166,21 @@ class Retrieve():
         self.userdb = self.dynamo.Table('test4')
 
     def retrieve_location(self, locationid):
-        self.log.info('%s: Starting with retrieving location JSON', locationid)
 
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
 
         fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        if fetchedjson != []:
+        if fetchedjson not in ['', None]:
 
-            self.log.info('{}: Fetched JSON {}.'.format(locationid,fetchedjson))
+            self.log.debug('{}: Fetched JSON {}.'.format(locationid,fetchedjson))
 
             writejson(locationid, fetchedjson, self.s3)
 
             set_retrieved_time(self.locdb, 'id', locationid)
 
         else:
-            self.log.info('Location {}: No JSON retrieved'.format(locationid))
+            self.log.debug('Location {}: No JSON retrieved'.format(locationid))
 
             set_deleted(self.locdb, 'id', locationid)
 
@@ -180,9 +191,9 @@ class Retrieve():
 
         fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        if fetchedjson != []:
+        if fetchedjson not in ['', None]:
 
-            self.log.info('{}: Fetched JSON {}.'.format(userid, fetchedjson))
+            self.log.debug('{}: Fetched JSON {}.'.format(userid, fetchedjson))
 
             writejson(userid, fetchedjson, self.s3)
 
@@ -190,7 +201,7 @@ class Retrieve():
 
         else:
 
-            self.log.info('Location {}: No JSON retrieved'.format(userid))
+            self.log.debug('Location {}: No JSON retrieved'.format(userid))
 
             set_deleted(self.userdb, 'username', userid)
 
@@ -201,9 +212,9 @@ class Retrieve():
 
         fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
 
-        if fetchedjson != []:
+        if fetchedjson not in ['', None]:
 
-            self.log.info('{}: Fetched JSON {}.'.format(pictureid, fetchedjson))
+            self.log.debug('{}: Fetched JSON {}.'.format(pictureid, fetchedjson))
 
             writejson(pictureid, fetchedjson, self.s3)
 
@@ -213,6 +224,6 @@ class Retrieve():
 
         else:
 
-            self.log.info('%s: No JSON for picture retrieved', pictureid)
+            self.log.debug('%s: No JSON for picture retrieved', pictureid)
 
             set_deleted(self.picdb, 'shortcode', pictureid)
