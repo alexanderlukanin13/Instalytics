@@ -179,10 +179,10 @@ class Retrieve():
         self.locdb = self.dynamo.Table('test3')
         self.userdb = self.dynamo.Table('test4')
         self.storage_directory = storage_directory
-        self.storage_json_location = 'downloads/json/location'
-        self.storage_json_user = 'downloads/json/user'
-        self.storage_json_post = 'downloads/json/post'
-        self.storage_pictures = 'downloads/pictures'
+        self.storage_json_location = 'json/location'
+        self.storage_json_user = 'json/user'
+        self.storage_json_post = 'json/post'
+        self.storage_pictures = 'pictures'
 
     def retrieve_location(self, locationid):
 
