@@ -10,8 +10,8 @@ import requests
 logging.basicConfig(level=logging.INFO)
 
 sr = Search()
-retr = Retrieve(useproxy=True, awsprofile='default')
-ex = Extract(awsprofile='default')
+retr = Retrieve(useproxy=False, awsprofile='dev')
+ex = Extract(awsprofile='dev')
 
 # list = sr.incomplete(category='user', step='all', getitems=100000)
 #
@@ -44,7 +44,9 @@ ex = Extract(awsprofile='default')
 # response = retr.retrieve_location(1763118290572140) #404 Example
 # response = retr.retrieve_location(1032993860) #Normal example
 
-response = retr.retrieve_user('swissglam')
+# response = retr.retrieve_user('swissglam')
+
+response = retr.retrieve_picture('BNKBq6LAzjq')
 
 if response == False:
     logging.info('ID could not been retrieved')

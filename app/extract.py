@@ -169,10 +169,8 @@ class Extract:
             if 5.955882 < location['lng'] < 10.492088 and 45.817933 < location['lat'] < 47.808463:
                 pictures = []
                 for pic in range(len(datastore['edge_location_to_media']['edges'])):
-                    pictures.append((datastore['edge_location_to_media']['edges'][pic]
-                                     ['node']['shortcode'],
-                                     datastore['edge_location_to_media']['edges'][pic]
-                                     ['node']['owner']['id']))
+                    pictures.append((datastore['edge_location_to_media']['edges'][pic]['node']['shortcode'],
+                                     datastore['edge_location_to_media']['edges'][pic]['node']['owner']['id']))
                 self.log.debug(pictures)
 
                 # Upload extracted pictures
@@ -308,8 +306,7 @@ class Extract:
 
         # Extract picture details from JSON - edge_media_to_sponsor_user
         try:
-            picture['sponsor'] = datastore['edge_media_to_sponsor_user']['edges']\
-                [0]['node']['sponsor']['username']
+            picture['sponsor'] = datastore['edge_media_to_sponsor_user']['edges'][0]['node']['sponsor']['username']
         except IndexError:
             self.log.debug('Picture {}: No sponsor found')
 
