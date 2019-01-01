@@ -5,6 +5,8 @@ from app import Retrieve
 from app import Search
 from app import Extract
 
+import requests
+
 logging.basicConfig(level=logging.INFO)
 
 sr = Search()
@@ -39,7 +41,14 @@ ex = Extract(awsprofile='default')
 
 #retr.retrieve_picture('BNKBq6LAzjq')
 
-retr.retrieve_location(7)
+#response = retr.retrieve_location(1763118290572140) #404 Example
+response = retr.retrieve_location(1032993860) #Normal example
+
+if response == False:
+    logging.info('ID could not been retrieved')
+
+if response == True:
+    logging.info('ID has been processed')
 
 # retr.retrieve_user('_mo.duinne_')
 # ex.user_details('_mo.duinne_')
