@@ -6,6 +6,7 @@ import multiprocessing as mp
 import logging
 import argparse
 import boto3
+import requests
 
 from app import Retrieve
 from app import Search
@@ -73,8 +74,7 @@ parser_run.set_defaults(command='run')
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     args = parser.parse_args()
-
-    logging.info(args.__dict__)
+    logging.debug(args.__dict__)
 
     # Initialize profiles
     sr = Search()
@@ -89,9 +89,12 @@ if __name__ == '__main__':
 
     # one location
     if args.command == 'get' and args.category == 'location':
-        logging.info('%s: Extracting location details', args.key)
-        retr.retrieve_location(int(args.key))
-        ex.location_details(args.key)
+        logging.info('%s: Start extracting location details', args.key)
+        locationretrieved = retr.retrieve_location(int(args.key))
+        if locationretrieved == True:
+            ex.location_details(args.key)
+        else:
+            logging.info('%s: Location skipped')
 
     # one pictures
     elif args.command == 'get' and args.category == 'picture':

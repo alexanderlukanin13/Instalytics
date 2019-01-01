@@ -29,57 +29,56 @@ def proxies_file():
 
     return proxies
 
-def grabjson(link, chosenproxy, useproxy=False):
+def get_json_instagram(link, proxylist, key=None, useproxy=False):
     """
     grabjson grabs the JSON from Instagram
     :param link: Link that should be grabbed, e.g. 'https://www.instagram.com/president' for users
-    :param chosenproxy: Proxy as string for requests module, e.g. '1.1.1.1:8080'
+    :param proxylist: Proxy list for requests module, e.g. ['1.1.1.1:8080', ...]
+    :param key: Original key that created the link
     :param useproxy: Indication if you want to use the proxy, default is False
-    :return: The fetches JSON file as dict
-
-    Todo: Better error handling in case the JSON can not be retrieved
+    :return: If JSON available: The fetches JSON file as dict, else: None
     """
     log = logging.getLogger(__name__)
+    proxy, useragent = random.choice(proxylist)
 
-    if useproxy is True:
-        proxy, useragent = chosenproxy
-
+    while True:
         try:
-            jsonstarttime = time.time()
-            resp = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy},
-                                timeout=60)
-            jsonendtime = time.time()
-
-        except requests.exceptions.ProxyError:
-            log.exception('Proxy not reachable')
-            raise
-
-        except requests.exceptions.ConnectTimeout:
-            log.exception('Connection Timeout')
-            raise
-
+            if useproxy is True:
+                response = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy},
+                                    timeout=30)
+                response.raise_for_status()
+                log.info('%s: Website retrieved after %s', key, response.elapsed)
+                break
+            else:
+                response = requests.get(link, timeout=30)
+                response.raise_for_status()
+                log.info('%s: Website retrieved after %s', key, response.elapsed)
+                break
+        except requests.exceptions.HTTPError as HTTPError:
+            if HTTPError.response.status_code == 404:
+                log.info('%s: Requested site "Not Found" (404 Error)', key)
+                return None
+            elif HTTPError.response.status_code == 429:
+                time.sleep(15)
+                continue
+            else:
+                # Raise all other HTTP errors for now to see what action is needed
+                raise
+        except requests.exceptions.ConnectionError:
+            proxy, useragent = random.choice(proxylist)
+            log.info('%s: Connection Error occurred. Proxy has been changed to %s', key, proxy)
+            continue
+        except requests.exceptions.Timeout:
+            proxy, useragent = random.choice(proxylist)
+            log.info('%s: Timeout Error occurred. Proxy has been changed to %s', key, proxy)
+            continue
         except:
-            log.exception('All other excptions')
+            # Raise all other HTTP errors for now to see what action is needed
             raise
 
-    else:
-        jsonstarttime = time.time()
-        resp = requests.get(link, timeout=60)
-        jsonendtime = time.time()
+    instagram_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', response.text)
 
-    if resp.status_code == 404:
-        log.info('Page not found, 404: %s', link)
-        resp.raise_for_status()
-
-    if resp.status_code == 429:
-        log.info('Too many requests for %s', link)
-        resp.raise_for_status()
-
-    resp_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', resp.text)
-    jsontime = jsonendtime - jsonstarttime
-    log.debug('%s: Time to retrieve (%s)', jsontime, link)
-
-    return resp_json
+    return instagram_json
 
 
 def grabimage(file_directory,
@@ -225,61 +224,72 @@ class Retrieve():
         """
         Retrieve location details
         :param locationid: Location ID
-        :return: None
+        :return: True if JSON was retrieved; False if not
         """
         fetchedjson = ''
         link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
-        try:
-            fetchedjson = grabjson(link,
-                                   random.choice(self.proxies),
-                                   self.useproxy)
-        except requests.exceptions.HTTPError:
-            self.log.exception('Http Error when retrieving the JSON')
+        fetchedjson = get_json_instagram(link,
+                                         self.proxies,
+                                         locationid,
+                                         self.useproxy)
 
-        if fetchedjson not in ['', None]:
-            self.log.debug('%s: Fetched JSON %s.', locationid, fetchedjson)
+        if fetchedjson != None:
             file_storage_json_location = os.path.join(self.storage_directory,
                                                       self.storage_json_location)
-            writejson(file_storage_json_location, locationid, fetchedjson, self.s3_link,
+            self.log.debug('%s: JSON saved to %s', locationid, file_storage_json_location)
+            writejson(file_storage_json_location,
+                      locationid,
+                      fetchedjson,
+                      self.s3_link,
                       self.storage_json_location)
             set_retrieved_time(self.locdb, 'id', locationid)
+            return True
 
         else:
-            self.log.debug('Location %s: No JSON retrieved', locationid)
+            self.log.info('%s: No JSON has been extracted', locationid)
             set_deleted(self.locdb, 'id', locationid)
+            return False
 
 
     def retrieve_user(self, userid):
         """
         Retrieve user details
         :param userid: User ID
-        :return: None
+        :return: True if JSON was retrieved; False if not
         """
         link = 'https://www.instagram.com/{}/'.format(userid)
-        fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
+        fetchedjson = get_json_instagram(link,
+                                         self.proxies,
+                                         userid,
+                                         self.useproxy)
 
-        if fetchedjson not in ['', None]:
+        if fetchedjson != None:
             self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
             file_storage_json_user = os.path.join(self.storage_directory,
                                                   self.storage_json_user)
             writejson(file_storage_json_user, userid, fetchedjson, self.s3_link,
                       self.storage_json_user)
             set_retrieved_time(self.userdb, 'username', userid)
+            return True
 
         else:
             self.log.debug('Location %s: No JSON retrieved', userid)
             set_deleted(self.userdb, 'username', userid)
+            return False
 
     def retrieve_picture(self, pictureid):
         """
         Retrieve picture details
         :param pictureid: Picture ID
-        :return: None
+        :return: True if JSON was retrieved; False if not
         """
         link = 'https://www.instagram.com/p/{}/'.format(pictureid)
-        fetchedjson = grabjson(link, random.choice(self.proxies), self.useproxy)
+        fetchedjson = get_json_instagram(link,
+                                         self.proxies,
+                                         pictureid,
+                                         self.useproxy)
 
-        if fetchedjson not in ['', None]:
+        if fetchedjson != None:
             self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
             file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
             writejson(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
@@ -297,7 +307,9 @@ class Retrieve():
                 self.log.exception('Check the exception with the following: %s, %s',
                                    pictureid, fetchedjson)
             set_retrieved_time(self.picdb, 'shortcode', pictureid)
+            return True
 
         else:
             self.log.debug('%s: No JSON for picture retrieved', pictureid)
             set_deleted(self.picdb, 'shortcode', pictureid)
+            return False
