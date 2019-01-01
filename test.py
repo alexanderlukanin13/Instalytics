@@ -42,7 +42,9 @@ ex = Extract(awsprofile='default')
 #retr.retrieve_picture('BNKBq6LAzjq')
 
 # response = retr.retrieve_location(1763118290572140) #404 Example
-response = retr.retrieve_location(1032993860) #Normal example
+# response = retr.retrieve_location(1032993860) #Normal example
+
+response = retr.retrieve_user('swissglam')
 
 if response == False:
     logging.info('ID could not been retrieved')

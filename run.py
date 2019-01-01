@@ -59,14 +59,14 @@ subparser = parser.add_subparsers()
 
 # Parser for running one-off searches / test
 parser_get = subparser.add_parser('get', )
-parser_get.add_argument('category', choices=('location', 'user', 'picture'),
+parser_get.add_argument('category', choices=('location', 'user', 'post'),
                          help='Define the category that you want to search, e.g. location',)
 parser_get.add_argument('key', help='Give the key you want to search, e.g 39949930 (for location)')
 parser_get.set_defaults(command='get')
 
 # Parser for running the program
 parser_run = subparser.add_parser('run')
-parser_run.add_argument('category', choices=('location', 'user', 'picture'))
+parser_run.add_argument('category', choices=('location', 'user', 'post'))
 parser_run.set_defaults(command='run')
 
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         ex.location_details(args.key)
 
     # one pictures
-    elif args.command == 'get' and args.category == 'picture':
+    elif args.command == 'get' and args.category == 'post':
         logging.info('%s: Extracting picture details', args.key)
         retr.retrieve_picture(args.key)
         ex.picture_details(args.key)
@@ -141,7 +141,7 @@ if __name__ == '__main__':
         logging.info(60 * '*')
 
     # run retrieve and extract pictures
-    elif args.command == 'run' and args.category == 'picture':
+    elif args.command == 'run' and args.category == 'post':
         logging.info(70 * '*')
         logging.info('=== PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM ===')
         logging.info(70 * '*')
