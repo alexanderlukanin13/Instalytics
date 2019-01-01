@@ -94,7 +94,7 @@ if __name__ == '__main__':
         if locationretrieved == True:
             ex.location_details(args.key)
         else:
-            logging.info('%s: Location skipped')
+            logging.info('%s: Location skipped', args.key)
 
     # one pictures
     elif args.command == 'get' and args.category == 'picture':
