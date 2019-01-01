@@ -184,7 +184,7 @@ class Extract:
                         self.picdb.put_item(
                             Item={
                                 'shortcode': pic[0],
-                                'userid': pic[1],
+                                'userid': int(pic[1]),
                                 'discovered_at_time': retrieved_at_time
                             },
                             ConditionExpression='attribute_not_exists(#sc)',
@@ -296,7 +296,7 @@ class Extract:
 
         # Extract picture details from JSON - Owner and did he/she answer comments
         picture['owner'] = datastore['owner']['username']
-        picture['ownerid'] = int(datastore['owner']['id'])
+        picture['owner_id'] = int(datastore['owner']['id'])
         try:
             if picture['owner'] in picture['commenters']:
                 picture['owner_commented'] = True
