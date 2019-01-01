@@ -119,11 +119,11 @@ def grabimage(file_directory,
                         '{}/{}_{}'.format(s3_file_directory, pictureid, filename))
 
 
-def writejson(file_directory,
-              keyid,
-              fetchedjson,
-              s3_link,
-              s3_directory):
+def write_json(file_directory,
+               keyid,
+               fetchedjson,
+               s3_link,
+               s3_directory):
     """
     Writing the JSON string where needed
     :param file_directory: Directory where the JSON string is saved
@@ -134,16 +134,24 @@ def writejson(file_directory,
     :return: None
     """
     log = logging.getLogger(__name__)
+
+    # Save JSON locally
     if not os.path.exists(file_directory):
+        log.info('Local file storage: %s does not exist', file_directory)
         os.makedirs(file_directory)
+        log.info('Local file storage: %s has been created', file_directory)
     try:
         with open('{}/{}.json'.format(file_directory, keyid), 'w') as file:
             file.write(datetime.now().strftime('%s') + '\n')
             file.write(fetchedjson[0])
+        log.debug('%s: Written to local file storage %s', keyid, file_directory)
     except:
-        log.exception('%s could not be written, check for error. JSON is: %s', keyid, fetchedjson)
+        log.exception('%s could not be written, check for error.', keyid)
+        raise
+    log.debug('%s: Uploading to S3 storage to %s started', keyid, s3_directory)
     s3_link.upload_file('{}/{}.json'.format(file_directory, keyid), 'gvbinsta-test',
                         '{}/{}.json'.format(s3_directory, keyid))
+    log.debug('%s: Uploaded to S3 storage to %s', keyid, s3_directory)
 
 def set_retrieved_time(db_link, key, value):
     """
@@ -236,13 +244,15 @@ class Retrieve():
         if fetchedjson != None:
             file_storage_json_location = os.path.join(self.storage_directory,
                                                       self.storage_json_location)
-            self.log.debug('%s: JSON saved to %s', locationid, file_storage_json_location)
-            writejson(file_storage_json_location,
-                      locationid,
-                      fetchedjson,
-                      self.s3_link,
-                      self.storage_json_location)
+            write_json(file_storage_json_location,
+                       locationid,
+                       fetchedjson,
+                       self.s3_link,
+                       self.storage_json_location)
+            self.log.debug('%s: JSON has been saved', locationid)
             set_retrieved_time(self.locdb, 'id', locationid)
+            self.log.debug('%s: Location is marked as retrieved', locationid)
+            self.log.info('%s: Location has been retrieved', locationid)
             return True
 
         else:
@@ -267,8 +277,8 @@ class Retrieve():
             self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
             file_storage_json_user = os.path.join(self.storage_directory,
                                                   self.storage_json_user)
-            writejson(file_storage_json_user, userid, fetchedjson, self.s3_link,
-                      self.storage_json_user)
+            write_json(file_storage_json_user, userid, fetchedjson, self.s3_link,
+                       self.storage_json_user)
             set_retrieved_time(self.userdb, 'username', userid)
             return True
 
@@ -292,8 +302,8 @@ class Retrieve():
         if fetchedjson != None:
             self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
             file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
-            writejson(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
-                      self.storage_json_post)
+            write_json(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
+                       self.storage_json_post)
             file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
             try:
                 grabimage(file_storage_pictures,

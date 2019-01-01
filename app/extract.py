@@ -4,6 +4,7 @@ Module is extracting all details from JSON file
 import logging
 import json
 import os
+import time
 
 from datetime import datetime
 from decimal import Decimal
@@ -54,9 +55,9 @@ class Extract:
         self.dynamo = self.awssession.resource('dynamodb')
         self.picdb = self.dynamo.Table('te_post')
         self.locdb = self.dynamo.Table('te_location')
-        self.locdbupdate = self.dynamo.Table('test3-1')
+        self.locdbupdate = self.dynamo.Table('te_location_update')
         self.userdb = self.dynamo.Table('te_user')
-        self.userdbupdate = self.dynamo.Table('test4-1')
+        self.userdbupdate = self.dynamo.Table('te_user_update')
         self.storage_directory = storage_directory
         self.storage_json_location = 'json/location'
         self.storage_json_user = 'json/user'
@@ -68,6 +69,9 @@ class Extract:
         Extraction of location details
         :param locationid: Location ID
         :return: None
+
+        Todo: Define storage differently on main
+        Todo: Define DBs differently on main
         """
 
         #Configure dictionary for saving the results
@@ -151,7 +155,7 @@ class Extract:
         self.locdbupdate.put_item(
             Item={
                 'id': int(locationid),
-                'at_time': int(datetime.now().strftime('%s')),
+                'at_time': int(time.time()),
                 'media_count': location['media_count']
             }
         )
@@ -504,9 +508,9 @@ class Extract:
 
         self.userdbupdate.put_item(
             Item={
-                'username': username,
-                'at_time': int(datetime.now().strftime('%s')),
                 'id': int(datastore['id']),
+                'at_time': int(time.time()),
+                'username': username,
                 'follow_count': user['follow_count'],
                 'followed_by_count': user['followed_by_count'],
                 'posts_count': user['posts_count']
