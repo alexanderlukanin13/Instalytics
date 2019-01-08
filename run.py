@@ -11,6 +11,10 @@ from app import Retrieve
 from app import Search
 from app import Extract
 
+
+retr = None
+
+
 def log_header(log_message):
     return f' {log_message} '.center(60, '=')
 
@@ -58,35 +62,42 @@ def mp_retrieve_user(user_list):
     retr.retrieve_user(user_dictionary['username'])
 
 
-parser = argparse.ArgumentParser(description='The Instalytics main program which runs pre-defined recipes to get, '
-                                             'extract, enrich and export Instagram data for analytics purposes')
-subparser = parser.add_subparsers()
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='The Instalytics main program which runs pre-defined recipes to get, '
+                                                 'extract, enrich and export Instagram data for analytics purposes')
+    subparser = parser.add_subparsers()
 
-# Parser for running one-off searches / test
-parser_get = subparser.add_parser('get')
-parser_get.add_argument('category', choices=('location', 'user', 'post'),
-                         help='Define the category that you want to search, e.g. location',)
-parser_get.add_argument('key', help='Give the key you want to search, e.g 39949930 (for location)')
-parser_get.set_defaults(command='get')
+    # Parser for running one-off searches / test
+    parser_get = subparser.add_parser('get')
+    parser_get.add_argument('category', choices=('location', 'user', 'post'),
+                             help='Define the category that you want to search, e.g. location',)
+    parser_get.add_argument('key', help='Give the key you want to search, e.g 39949930 (for location)')
+    parser_get.set_defaults(command='get')
 
-# Parser for running the program
-parser_run = subparser.add_parser('run')
-parser_run.add_argument('category', choices=('location', 'user', 'post'))
-parser_run.set_defaults(command='run')
+    # Parser for running the program
+    parser_run = subparser.add_parser('run')
+    parser_run.add_argument('category', choices=('location', 'user', 'post'))
+    parser_run.set_defaults(command='run')
 
-# Parser for updating a category
-parser_update = subparser.add_parser('update')
-parser_update.add_argument('category', choices=('location', 'user', 'post'))
-parser_update.set_defaults(command='update')
+    # Parser for updating a category
+    parser_update = subparser.add_parser('update')
+    parser_update.add_argument('category', choices=('location', 'user', 'post'))
+    parser_update.set_defaults(command='update')
 
-if __name__ == '__main__':
+    return parser.parse_args()
+
+
+def main():
+    """Main function of the script."""
     logging.basicConfig(level=logging.INFO)
-    args = parser.parse_args()
+    args = parse_args()
 
     logging.info(args.__dict__)
 
     # Initialize profiles
     sr = Search()
+    global retr
     retr = Retrieve(useproxy=True, awsprofile='default', storage_directory='./downloads')
     ex = Extract(awsprofile='default', storage_directory='./downloads')
     dynamo = boto3.resource('dynamodb')
@@ -249,3 +260,7 @@ if __name__ == '__main__':
 
     else:
         logging.info('No valid category')
+
+
+if __name__ == '__main__':
+    main()
