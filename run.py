@@ -11,6 +11,10 @@ from app import Retrieve
 from app import Search
 from app import Extract
 
+
+retr = None
+
+
 def mp_retrieve_location(location_list):
     """
     Function to support multiprocessing and avoid getting a pickle error for locations
@@ -54,30 +58,45 @@ def mp_retrieve_user(user_list):
     retr.retrieve_user(user_dictionary['username'])
 
 
-parser = argparse.ArgumentParser()
-subparser = parser.add_subparsers()
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers()
 
-# Parser for running one-off searches / test
-parser_get = subparser.add_parser('get', )
-parser_get.add_argument('category', choices=('location', 'user', 'picture'),
-                         help='Define the category that you want to search, e.g. location',)
-parser_get.add_argument('key', help='Give the key you want to search, e.g 39949930 (for location)')
-parser_get.set_defaults(command='get')
+    # Parser for running one-off searches / test
+    parser_get = subparser.add_parser('get', )
+    parser_get.add_argument('category', choices=('location', 'user', 'picture'),
+                            help='Define the category that you want to search, e.g. location',)
+    parser_get.add_argument('key',
+                            help='Give the key you want to search, e.g 39949930 (for location)')
+    parser_get.set_defaults(command='get')
 
-# Parser for running the program
-parser_run = subparser.add_parser('run')
-parser_run.add_argument('category', choices=('location', 'user', 'picture'))
-parser_run.set_defaults(command='run')
+    # Parser for running the program
+    parser_run = subparser.add_parser('run')
+    parser_run.add_argument('category', choices=('location', 'user', 'picture'))
+    parser_run.set_defaults(command='run')
+
+    return parser.parse_args()
 
 
-if __name__ == '__main__':
+def log_header(s):
+    """Log an important message with an underline and overline, like a header."""
+    line = 60 * s
+    logging.info(line)
+    logging.info(s)
+    logging.info(line)
+
+
+def main():
+    """Main function of the script."""
     logging.basicConfig(level=logging.INFO)
-    args = parser.parse_args()
+    args = parse_args()
 
     logging.info(args.__dict__)
 
     # Initialize profiles
     sr = Search()
+    global retr
     retr = Retrieve(useproxy=True, awsprofile='default', storage_directory='.')
     ex = Extract(awsprofile='default', storage_directory='.')
     dynamo = boto3.resource('dynamodb')
@@ -107,22 +126,16 @@ if __name__ == '__main__':
 
     # run retrieve and extract locations
     elif args.command == 'run' and args.category == 'location':
-        logging.info(70 * '*')
-        logging.info('=== LOCATIONS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
-        logging.info(70 * '*')
+        log_header('=== LOCATIONS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
         response = sr.scan_key_with_filter(tbl_locations,
                                            'id',
                                            'discovered')
         retrlocations = list(enumerate(response, 1))
         pool.map(mp_retrieve_location, retrlocations)
 
-        logging.info(60 * '*')
-        logging.info('=== LOCATIONS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== LOCATIONS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
 
-        logging.info(60 * '*')
-        logging.info('=== LOCATIONS - EXTRACTING INFORMATION ===')
-        logging.info(60 * '*')
+        log_header('=== LOCATIONS - EXTRACTING INFORMATION ===')
 
         extrlocations = sr.scan_key_with_filter(tbl_locations,
                                                 'id',
@@ -136,15 +149,11 @@ if __name__ == '__main__':
                          location_number, extrlocations_total, location_id['id'])
             ex.location_details(location_id['id'])
 
-        logging.info(60 * '*')
-        logging.info('=== LOCATIONS - EXTRACTING COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== LOCATIONS - EXTRACTING COMPLETED ===')
 
     # run retrieve and extract pictures
     elif args.command == 'run' and args.category == 'picture':
-        logging.info(70 * '*')
-        logging.info('=== PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM ===')
-        logging.info(70 * '*')
+        log_header('=== PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM ===')
 
         response = sr.scan_key_with_filter(tbl_pictures,
                                            'shortcode',
@@ -153,13 +162,9 @@ if __name__ == '__main__':
         retrpictures = list(enumerate(response, 1))
         pool.map(mp_retrieve_picture, retrpictures)
 
-        logging.info(60 * '*')
-        logging.info('=== PICTURES - RETRIEVING FROM INSTAGRAM COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== PICTURES - RETRIEVING FROM INSTAGRAM COMPLETED ===')
 
-        logging.info(60 * '*')
-        logging.info('=== PICTURES - EXTRACTING INFORMATION ===')
-        logging.info(60 * '*')
+        log_header('=== PICTURES - EXTRACTING INFORMATION ===')
 
         extrpictures = sr.scan_key_with_filter(tbl_pictures,
                                                'shortcode',
@@ -173,16 +178,12 @@ if __name__ == '__main__':
                          picture_number, extrpictures_total, picture_name['shortcode'])
             ex.picture_details(picture_name['shortcode'])
 
-        logging.info(60 * '*')
-        logging.info('=== PICTURES - EXTRACTING COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== PICTURES - EXTRACTING COMPLETED ===')
 
     # run retrieve and extract users
     elif args.command == 'run' and args.category == 'user':
 
-        logging.info(70 * '*')
-        logging.info('=== USERS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
-        logging.info(70 * '*')
+        log_header('=== USERS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
 
         response = sr.scan_key_with_filter(tbl_user,
                                            'username',
@@ -190,13 +191,9 @@ if __name__ == '__main__':
         retrusers = list(enumerate(response, 1))
         pool.map(mp_retrieve_user, retrusers)
 
-        logging.info(60 * '*')
-        logging.info('=== USERS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== USERS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
 
-        logging.info(60 * '*')
-        logging.info('=== USERS - EXTRACTING INFORMATION ===')
-        logging.info(60 * '*')
+        log_header('=== USERS - EXTRACTING INFORMATION ===')
 
         extrusers = sr.scan_key_with_filter(tbl_user,
                                             'username',
@@ -208,9 +205,7 @@ if __name__ == '__main__':
                          user_number, extrusers_total, user_name['username'])
             ex.user_details(user_name['username'])
 
-        logging.info(60 * '*')
-        logging.info('=== USERS - EXTRACTING COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== USERS - EXTRACTING COMPLETED ===')
 
     # weekly
 
@@ -218,3 +213,7 @@ if __name__ == '__main__':
 
     else:
         logging.info('No valid category')
+
+
+if __name__ == '__main__':
+    main()
