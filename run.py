@@ -11,6 +11,10 @@ from app import Retrieve
 from app import Search
 from app import Extract
 
+def log_header(log_message):
+    return f' {log_message} '.center(60, '=')
+
+
 def mp_retrieve_location(location_list):
     """
     Function to support multiprocessing and avoid getting a pickle error for locations
@@ -54,11 +58,12 @@ def mp_retrieve_user(user_list):
     retr.retrieve_user(user_dictionary['username'])
 
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description='The Instalytics main program which runs pre-defined recipes to get, '
+                                             'extract, enrich and export Instagram data for analytics purposes')
 subparser = parser.add_subparsers()
 
 # Parser for running one-off searches / test
-parser_get = subparser.add_parser('get', )
+parser_get = subparser.add_parser('get')
 parser_get.add_argument('category', choices=('location', 'user', 'post'),
                          help='Define the category that you want to search, e.g. location',)
 parser_get.add_argument('key', help='Give the key you want to search, e.g 39949930 (for location)')
@@ -69,6 +74,10 @@ parser_run = subparser.add_parser('run')
 parser_run.add_argument('category', choices=('location', 'user', 'post'))
 parser_run.set_defaults(command='run')
 
+# Parser for updating a category
+parser_update = subparser.add_parser('update')
+parser_update.add_argument('category', choices=('location', 'user', 'post'))
+parser_update.set_defaults(command='update')
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
@@ -212,7 +221,29 @@ if __name__ == '__main__':
         logging.info('=== USERS - EXTRACTING COMPLETED ===')
         logging.info(60 * '*')
 
-    # weekly
+    # weekly updating
+
+    elif args.command == 'update' and args.category == 'location':
+
+        logging.info(log_header('UPDATE LOCATION - RETR FROM INSTAGRAM STARTED'))
+        response = sr.scan_key_with_filter(tbl_locations,
+                                           'id',
+                                           'all')
+        retrlocations = list(enumerate(response, 1))
+        pool.map(mp_retrieve_location, retrlocations)
+        logging.info((log_header('UPDATE LOCATION - RETR FROM INSTAGRAM COMPLETED')))
+
+        logging.info((log_header('UPDATE LOCATION - EXTRACTING INFORMATION')))
+        extrlocations = sr.scan_key_with_filter(tbl_locations,
+                                                'id',
+                                                'all')
+        extrlocations_total = len(extrlocations)
+        for location in list(enumerate(extrlocations)):
+            location_number, location_id = location
+            logging.info('[%s]/[%s]: %s - Extracting location details',
+                         location_number, extrlocations_total, location_id['id'])
+            ex.location_details(location_id['id'])
+        logging.info(log_header('UPDATE LOCATION - EXTRACTING COMPLETED'))
 
     # all five minutes
 
