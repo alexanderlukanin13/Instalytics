@@ -40,6 +40,7 @@ class Search:
                              items=1000):
 
         filter_expressions = {
+            'all': Attr('deleted').not_exists(),
             'discovered': Attr('retrieved_at_time').not_exists() &
                           Attr('deleted').not_exists(),
             'retrieved': Attr('processed_at_time').not_exists() &
