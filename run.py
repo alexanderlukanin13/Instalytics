@@ -78,8 +78,8 @@ if __name__ == '__main__':
 
     # Initialize profiles
     sr = Search()
-    retr = Retrieve(useproxy=True, awsprofile='default', storage_directory='.')
-    ex = Extract(awsprofile='default', storage_directory='.')
+    retr = Retrieve(useproxy=True, awsprofile='default', storage_directory='./downloads')
+    ex = Extract(awsprofile='default', storage_directory='./downloads')
     dynamo = boto3.resource('dynamodb')
     tbl_user = dynamo.Table('test4')
     tbl_pictures = dynamo.Table('test2')
