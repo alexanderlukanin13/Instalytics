@@ -127,22 +127,16 @@ def main():
 
     # run retrieve and extract locations
     elif args.command == 'run' and args.category == 'location':
-        logging.info(70 * '*')
-        logging.info('=== LOCATIONS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
-        logging.info(70 * '*')
+        log_header('=== LOCATIONS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
         response = sr.scan_key_with_filter(tbl_locations,
                                            'id',
                                            'discovered')
         retrlocations = list(enumerate(response, 1))
         pool.map(mp_retrieve_location, retrlocations)
 
-        logging.info(60 * '*')
-        logging.info('=== LOCATIONS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== LOCATIONS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
 
-        logging.info(60 * '*')
-        logging.info('=== LOCATIONS - EXTRACTING INFORMATION ===')
-        logging.info(60 * '*')
+        log_header('=== LOCATIONS - EXTRACTING INFORMATION ===')
 
         extrlocations = sr.scan_key_with_filter(tbl_locations,
                                                 'id',
@@ -156,15 +150,11 @@ def main():
                          location_number, extrlocations_total, location_id['id'])
             ex.location_details(location_id['id'])
 
-        logging.info(60 * '*')
-        logging.info('=== LOCATIONS - EXTRACTING COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== LOCATIONS - EXTRACTING COMPLETED ===')
 
     # run retrieve and extract pictures
     elif args.command == 'run' and args.category == 'post':
-        logging.info(70 * '*')
-        logging.info('=== PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM ===')
-        logging.info(70 * '*')
+        log_header('=== PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM ===')
 
         response = sr.scan_key_with_filter(tbl_pictures,
                                            'shortcode',
@@ -173,13 +163,9 @@ def main():
         retrpictures = list(enumerate(response, 1))
         pool.map(mp_retrieve_picture, retrpictures)
 
-        logging.info(60 * '*')
-        logging.info('=== PICTURES - RETRIEVING FROM INSTAGRAM COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== PICTURES - RETRIEVING FROM INSTAGRAM COMPLETED ===')
 
-        logging.info(60 * '*')
-        logging.info('=== PICTURES - EXTRACTING INFORMATION ===')
-        logging.info(60 * '*')
+        log_header('=== PICTURES - EXTRACTING INFORMATION ===')
 
         extrpictures = sr.scan_key_with_filter(tbl_pictures,
                                                'shortcode',
@@ -193,16 +179,12 @@ def main():
                          picture_number, extrpictures_total, picture_name['shortcode'])
             ex.picture_details(picture_name['shortcode'])
 
-        logging.info(60 * '*')
-        logging.info('=== PICTURES - EXTRACTING COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== PICTURES - EXTRACTING COMPLETED ===')
 
     # run retrieve and extract users
     elif args.command == 'run' and args.category == 'user':
 
-        logging.info(70 * '*')
-        logging.info('=== USERS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
-        logging.info(70 * '*')
+        log_header('=== USERS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
 
         response = sr.scan_key_with_filter(tbl_user,
                                            'username',
@@ -210,13 +192,9 @@ def main():
         retrusers = list(enumerate(response, 1))
         pool.map(mp_retrieve_user, retrusers)
 
-        logging.info(60 * '*')
-        logging.info('=== USERS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== USERS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
 
-        logging.info(60 * '*')
-        logging.info('=== USERS - EXTRACTING INFORMATION ===')
-        logging.info(60 * '*')
+        log_header('=== USERS - EXTRACTING INFORMATION ===')
 
         extrusers = sr.scan_key_with_filter(tbl_user,
                                             'username',
@@ -228,9 +206,7 @@ def main():
                          user_number, extrusers_total, user_name['username'])
             ex.user_details(user_name['username'])
 
-        logging.info(60 * '*')
-        logging.info('=== USERS - EXTRACTING COMPLETED ===')
-        logging.info(60 * '*')
+        log_header('=== USERS - EXTRACTING COMPLETED ===')
 
     # weekly updating
 
