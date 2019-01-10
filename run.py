@@ -16,7 +16,7 @@ retr = None
 
 
 def log_header(log_message):
-    return f' {log_message} '.center(60, '=')
+    logging.info(f' {log_message} '.center(60, '='))
 
 
 def mp_retrieve_location(location_list):
@@ -127,16 +127,16 @@ def main():
 
     # run retrieve and extract locations
     elif args.command == 'run' and args.category == 'location':
-        log_header('=== LOCATIONS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
+        log_header('LOCATIONS - STARTING TO RETRIEVE FROM INSTAGRAM')
         response = sr.scan_key_with_filter(tbl_locations,
                                            'id',
                                            'discovered')
         retrlocations = list(enumerate(response, 1))
         pool.map(mp_retrieve_location, retrlocations)
 
-        log_header('=== LOCATIONS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
+        log_header('LOCATIONS - RETRIEVING FROM INSTAGRAM COMPLETED')
 
-        log_header('=== LOCATIONS - EXTRACTING INFORMATION ===')
+        log_header('LOCATIONS - EXTRACTING INFORMATION')
 
         extrlocations = sr.scan_key_with_filter(tbl_locations,
                                                 'id',
@@ -150,11 +150,11 @@ def main():
                          location_number, extrlocations_total, location_id['id'])
             ex.location_details(location_id['id'])
 
-        log_header('=== LOCATIONS - EXTRACTING COMPLETED ===')
+        log_header('LOCATIONS - EXTRACTING COMPLETED')
 
     # run retrieve and extract pictures
     elif args.command == 'run' and args.category == 'post':
-        log_header('=== PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM ===')
+        log_header('PICTURES - STARTING TO RETRIEVE FROM INSTAGRAM')
 
         response = sr.scan_key_with_filter(tbl_pictures,
                                            'shortcode',
@@ -163,9 +163,9 @@ def main():
         retrpictures = list(enumerate(response, 1))
         pool.map(mp_retrieve_picture, retrpictures)
 
-        log_header('=== PICTURES - RETRIEVING FROM INSTAGRAM COMPLETED ===')
+        log_header('PICTURES - RETRIEVING FROM INSTAGRAM COMPLETED')
 
-        log_header('=== PICTURES - EXTRACTING INFORMATION ===')
+        log_header('PICTURES - EXTRACTING INFORMATION')
 
         extrpictures = sr.scan_key_with_filter(tbl_pictures,
                                                'shortcode',
@@ -179,12 +179,12 @@ def main():
                          picture_number, extrpictures_total, picture_name['shortcode'])
             ex.picture_details(picture_name['shortcode'])
 
-        log_header('=== PICTURES - EXTRACTING COMPLETED ===')
+        log_header('PICTURES - EXTRACTING COMPLETED')
 
     # run retrieve and extract users
     elif args.command == 'run' and args.category == 'user':
 
-        log_header('=== USERS - STARTING TO RETRIEVE FROM INSTAGRAM ===')
+        log_header('USERS - STARTING TO RETRIEVE FROM INSTAGRAM')
 
         response = sr.scan_key_with_filter(tbl_user,
                                            'username',
@@ -192,9 +192,9 @@ def main():
         retrusers = list(enumerate(response, 1))
         pool.map(mp_retrieve_user, retrusers)
 
-        log_header('=== USERS - RETRIEVING FROM INSTAGRAM COMPLETED ===')
+        log_header('USERS - RETRIEVING FROM INSTAGRAM COMPLETED')
 
-        log_header('=== USERS - EXTRACTING INFORMATION ===')
+        log_header('USERS - EXTRACTING INFORMATION')
 
         extrusers = sr.scan_key_with_filter(tbl_user,
                                             'username',
@@ -206,7 +206,7 @@ def main():
                          user_number, extrusers_total, user_name['username'])
             ex.user_details(user_name['username'])
 
-        log_header('=== USERS - EXTRACTING COMPLETED ===')
+        log_header('USERS - EXTRACTING COMPLETED')
 
     # weekly updating
 
