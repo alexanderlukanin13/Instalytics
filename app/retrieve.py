@@ -72,9 +72,7 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
             proxy, useragent = random.choice(proxylist)
             log.info('%s: Timeout Error occurred. Proxy has been changed to %s', key, proxy)
             continue
-        except:
-            # Raise all other HTTP errors for now to see what action is needed
-            raise
+        # Raise all other HTTP errors for now to see what action is needed
 
     instagram_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', response.text)
 
@@ -313,7 +311,7 @@ class Retrieve():
                           fetchedjson[0],
                           random.choice(self.proxies),
                           self.useproxy)
-            except:
+            except Exception:
                 self.log.exception('Check the exception with the following: %s, %s',
                                    pictureid, fetchedjson)
             set_retrieved_time(self.picdb, 'shortcode', pictureid)
