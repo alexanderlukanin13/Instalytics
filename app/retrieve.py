@@ -45,7 +45,7 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
         try:
             if useproxy is True:
                 response = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy},
-                                    timeout=30)
+                                        timeout=30)
                 response.raise_for_status()
                 log.info('%s: Website retrieved after %s', key, response.elapsed)
                 break
@@ -54,11 +54,11 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
                 response.raise_for_status()
                 log.info('%s: Website retrieved after %s', key, response.elapsed)
                 break
-        except requests.exceptions.HTTPError as HTTPError:
-            if HTTPError.response.status_code == 404:
+        except requests.exceptions.HTTPError as ex:
+            if ex.response.status_code == 404:
                 log.info('%s: Requested site "Not Found" (404 Error)', key)
                 return None
-            elif HTTPError.response.status_code == 429:
+            elif ex.response.status_code == 429:
                 time.sleep(15)
                 continue
             else:
