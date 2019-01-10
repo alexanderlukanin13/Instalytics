@@ -1,33 +1,29 @@
 """
-The retrieve program retrieves JSONs and pictures from instagram
+The retrieve program retrieves JSONs and pictures from Instagram.
 """
+from datetime import datetime
 import logging
+import os
 import random
 import re
 import shutil
 import time
-import os
 
-from datetime import datetime
-
-import requests
 import boto3
-
 from botocore import errorfactory
+import requests
+
+from .utils import read_lines
 
 
 def proxies_file():
-    """Returns a list of proxies from a local file"""
+    """
+    Returns a list of tuples (proxy_ip, user_agent) from a local file.
+    """
+    user_agents = read_lines('./config/agentstrings.conf')
+    proxies = read_lines('./config/proxys.conf')
+    return [(x, random.choice(user_agents)) for x in proxies]
 
-    proxies = []
-    with open('./config/agentstrings.conf', 'r') as file:
-        useragent = file.read().splitlines()
-    with open('./config/proxys.conf', 'r') as file:
-        proxyfile = file.read().splitlines()
-        for linenumber in range(len(proxyfile)):
-            proxies.append((proxyfile[linenumber], random.choice(useragent)))
-
-    return proxies
 
 def get_json_instagram(link, proxylist, key=None, useproxy=False):
     """
@@ -43,7 +39,7 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
 
     while True:
         try:
-            if useproxy is True:
+            if useproxy:
                 response = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy},
                                         timeout=30)
                 response.raise_for_status()
@@ -239,25 +235,22 @@ class Retrieve():
                                          locationid,
                                          self.useproxy)
 
-        if fetchedjson != None:
-            file_storage_json_location = os.path.join(self.storage_directory,
-                                                      self.storage_json_location)
-            write_json(file_storage_json_location,
-                       locationid,
-                       fetchedjson,
-                       self.s3_link,
-                       self.storage_json_location)
-            self.log.debug('%s: JSON has been saved', locationid)
-            set_retrieved_time(self.locdb, 'id', locationid)
-            self.log.debug('%s: Location is marked as retrieved', locationid)
-            self.log.info('%s: Location has been retrieved', locationid)
-            return True
-
-        else:
+        if not fetchedjson:
             self.log.info('%s: No JSON has been extracted', locationid)
             set_deleted(self.locdb, 'id', locationid)
             return False
-
+        file_storage_json_location = os.path.join(self.storage_directory,
+                                                  self.storage_json_location)
+        write_json(file_storage_json_location,
+                   locationid,
+                   fetchedjson,
+                   self.s3_link,
+                   self.storage_json_location)
+        self.log.debug('%s: JSON has been saved', locationid)
+        set_retrieved_time(self.locdb, 'id', locationid)
+        self.log.debug('%s: Location is marked as retrieved', locationid)
+        self.log.info('%s: Location has been retrieved', locationid)
+        return True
 
     def retrieve_user(self, userid):
         """
