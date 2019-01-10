@@ -147,6 +147,7 @@ def write_json(file_directory,
                         '{}/{}.json'.format(s3_directory, keyid))
     log.debug('%s: Uploaded to S3 storage to %s', keyid, s3_directory)
 
+
 def set_retrieved_time(db_link, key, value):
     """
     Set the retrieved time within the DB for further processing
@@ -174,6 +175,7 @@ def set_retrieved_time(db_link, key, value):
 
     log.debug(resp)
 
+
 def set_deleted(db_link, key, value):
     """
     Set the item deleted within the DB
@@ -196,11 +198,13 @@ def set_deleted(db_link, key, value):
 
     log.debug(resp)
 
-class Retrieve():
+
+class Retrieve:
     """
     Retrieve class extracts the JSON from Instagram, downloads the picture for posts,
     saves it locally and uploads it to Amazon S3 storage
     """
+
     def __init__(self,
                  useproxy=False,
                  awsprofile='default',
@@ -264,19 +268,17 @@ class Retrieve():
                                          userid,
                                          self.useproxy)
 
-        if fetchedjson != None:
-            self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
-            file_storage_json_user = os.path.join(self.storage_directory,
-                                                  self.storage_json_user)
-            write_json(file_storage_json_user, userid, fetchedjson, self.s3_link,
-                       self.storage_json_user)
-            set_retrieved_time(self.userdb, 'username', userid)
-            return True
-
-        else:
+        if not fetchedjson:
             self.log.debug('Location %s: No JSON retrieved', userid)
             set_deleted(self.userdb, 'username', userid)
             return False
+        self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
+        file_storage_json_user = os.path.join(self.storage_directory,
+                                              self.storage_json_user)
+        write_json(file_storage_json_user, userid, fetchedjson, self.s3_link,
+                   self.storage_json_user)
+        set_retrieved_time(self.userdb, 'username', userid)
+        return True
 
     def retrieve_picture(self, pictureid):
         """
@@ -290,27 +292,25 @@ class Retrieve():
                                          pictureid,
                                          self.useproxy)
 
-        if fetchedjson != None:
-            self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
-            file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
-            write_json(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
-                       self.storage_json_post)
-            file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
-            try:
-                grabimage(file_storage_pictures,
-                          self.s3_link,
-                          self.storage_pictures,
-                          pictureid,
-                          fetchedjson[0],
-                          random.choice(self.proxies),
-                          self.useproxy)
-            except Exception:
-                self.log.exception('Check the exception with the following: %s, %s',
-                                   pictureid, fetchedjson)
-            set_retrieved_time(self.picdb, 'shortcode', pictureid)
-            return True
-
-        else:
+        if not fetchedjson:
             self.log.debug('%s: No JSON for picture retrieved', pictureid)
             set_deleted(self.picdb, 'shortcode', pictureid)
             return False
+        self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
+        file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
+        write_json(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
+                   self.storage_json_post)
+        file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
+        try:
+            grabimage(file_storage_pictures,
+                      self.s3_link,
+                      self.storage_pictures,
+                      pictureid,
+                      fetchedjson[0],
+                      random.choice(self.proxies),
+                      self.useproxy)
+        except Exception:
+            self.log.exception('Check the exception with the following: %s, %s',
+                               pictureid, fetchedjson)
+        set_retrieved_time(self.picdb, 'shortcode', pictureid)
+        return True
