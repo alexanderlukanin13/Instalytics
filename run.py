@@ -66,6 +66,7 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='The Instalytics main program which runs pre-defined recipes to get, '
                                                  'extract, enrich and export Instagram data for analytics purposes')
+    parser.add_argument('--no-proxy', action='store_true', help="Don't use proxy servers")
     subparser = parser.add_subparsers()
 
     # Parser for running one-off searches / test
@@ -98,7 +99,7 @@ def main():
     # Initialize profiles
     sr = Search()
     global retr
-    retr = Retrieve(useproxy=True, awsprofile='default', storage_directory='./downloads')
+    retr = Retrieve(useproxy=not args.no_proxy, awsprofile='default', storage_directory='./downloads')
     ex = Extract(awsprofile='default', storage_directory='./downloads')
     dynamo = boto3.resource('dynamodb')
     tbl_user = dynamo.Table('te_user')
