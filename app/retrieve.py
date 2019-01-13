@@ -14,6 +14,7 @@ from botocore import errorfactory
 import requests
 
 from .utils import read_lines
+from .utils import measure_end
 
 
 def proxies_file():
@@ -25,7 +26,9 @@ def proxies_file():
     return [(x, random.choice(user_agents)) for x in proxies]
 
 
-def get_json_instagram(link, proxylist, key=None, useproxy=False):
+def get_json_instagram(link,
+                       proxylist,
+                       useproxy=False):
     """
     grabjson grabs the JSON from Instagram
     :param link: Link that should be grabbed, e.g. 'https://www.instagram.com/president' for users
@@ -35,6 +38,7 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
     :return: If JSON available: The fetches JSON file as dict, else: None
     """
     log = logging.getLogger(__name__)
+    partitionkey = link.split('/')[-1]
     proxy, useragent = random.choice(proxylist)
 
     while True:
@@ -43,18 +47,19 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
                 response = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy},
                                         timeout=30)
                 response.raise_for_status()
-                log.info('%s: Website retrieved after %s', key, response.elapsed)
+                log.info(f'{partitionkey}: Website retrieved after {response.elapsed}')
                 break
             else:
                 response = requests.get(link, timeout=30)
                 response.raise_for_status()
-                log.info('%s: Website retrieved after %s', key, response.elapsed)
+                log.info(f'{partitionkey}: Website retrieved after {response.elapsed}')
                 break
         except requests.exceptions.HTTPError as ex:
             if ex.response.status_code == 404:
-                log.info('%s: Requested site "Not Found" (404 Error)', key)
+                log.info(f'{partitionkey}: Requested site "Not Found" (404 Error)')
                 return None
             elif ex.response.status_code == 429:
+                log.info(f'{partitionkey}: JSON Retrieval too fast (429 Error)')
                 time.sleep(15)
                 continue
             else:
@@ -62,13 +67,12 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
                 raise
         except requests.exceptions.ConnectionError:
             proxy, useragent = random.choice(proxylist)
-            log.info('%s: Connection Error occurred. Proxy has been changed to %s', key, proxy)
+            log.info(f'{partitionkey}: Connection Error occurred. Proxy has been changed to {proxy}')
             continue
         except requests.exceptions.Timeout:
             proxy, useragent = random.choice(proxylist)
-            log.info('%s: Timeout Error occurred. Proxy has been changed to %s', key, proxy)
+            log.info(f'{partitionkey}: Timeout Error occurred. Proxy has been changed to {proxy}')
             continue
-        # Raise all other HTTP errors for now to see what action is needed
 
     instagram_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', response.text)
 
@@ -113,6 +117,57 @@ def grabimage(file_directory,
                         '{}/{}_{}'.format(s3_file_directory, pictureid, filename))
 
 
+def write_json_local(fetched_json,
+                     storage_directory,
+                     storage_location,
+                     partitionkey,
+                     capturing_time,
+                     subfolder=True):
+    log = logging.getLogger(__name__)
+    if subfolder:
+        file_storage_json = os.path.join(storage_directory,
+                                         storage_location,
+                                         str(partitionkey))
+    else:
+        file_storage_json = os.path.join(storage_directory,
+                                         storage_location)
+    if not os.path.exists(file_storage_json):
+        log.info(f'Local file storage: {file_storage_json} does not exist')
+        os.makedirs(file_storage_json)
+        log.info(f'Local file storage: {file_storage_json} has been created')
+    try:
+        with open(f'{file_storage_json}/{capturing_time}_{partitionkey}.json', 'w') as file:
+            file.write(fetched_json[0])
+        log.debug(f'{partitionkey}: Written to local file storage {storage_location}')
+    except:
+        log.exception(f'{partitionkey}: File could not be written, check for error.')
+        raise
+
+
+def write_json_s3(storage_link,
+                  storage_bucket,
+                  storage_directory,
+                  storage_location,
+                  partitionkey,
+                  capturing_time,
+                  subfolder=True):
+    log = logging.getLogger(__name__)
+    if subfolder:
+        local_file_storage_json = os.path.join(storage_directory,
+                                               storage_location,
+                                               str(partitionkey))
+        remote_file_storage_json = os.path.join(storage_location,
+                                                str(partitionkey))
+    else:
+        local_file_storage_json = os.path.join(storage_directory,
+                                               storage_location)
+        remote_file_storage_json = os.path.join(storage_location)
+    storage_link.upload_file(f'{local_file_storage_json}/{capturing_time}_{partitionkey}.json',
+                             storage_bucket,
+                             f'{remote_file_storage_json}/{capturing_time}_{partitionkey}.json'
+                             )
+
+
 def write_json(file_directory,
                keyid,
                fetchedjson,
@@ -148,7 +203,7 @@ def write_json(file_directory,
     log.debug('%s: Uploaded to S3 storage to %s', keyid, s3_directory)
 
 
-def set_retrieved_time(db_link, key, value):
+def set_retrieved_time(db_link, key, value, capture_time):
     """
     Set the retrieved time within the DB for further processing
     :param db_link: DB connection
@@ -164,7 +219,7 @@ def set_retrieved_time(db_link, key, value):
             },
             UpdateExpression='SET retrieved_at_time = :rtime',
             ExpressionAttributeValues={
-                ':rtime': int(time.time())
+                ':rtime': capture_time
             }
         )
 
@@ -203,6 +258,8 @@ class Retrieve:
     """
     Retrieve class extracts the JSON from Instagram, downloads the picture for posts,
     saves it locally and uploads it to Amazon S3 storage
+
+    Todo: Creating a TOML file with the details about proxy, awsprofile, storage-folders and DBs
     """
 
     def __init__(self,
@@ -215,6 +272,8 @@ class Retrieve:
         self.proxies = proxies_file()
         self.useproxy = useproxy
         self.awssession = boto3.session.Session(profile_name=awsprofile, region_name=awsregion)
+        self.s3 = True
+        self.s3_bucket = 'gvbinsta-test'
         self.s3_link = self.awssession.client('s3')
         self.dynamo = self.awssession.resource('dynamodb')
         self.picdb = self.dynamo.Table('te_post')
@@ -226,34 +285,63 @@ class Retrieve:
         self.storage_json_post = 'json/post'
         self.storage_pictures = 'pictures'
 
-    def retrieve_location(self, locationid):
+    def retrieve_location(self, location_id):
         """
         Retrieve location details
-        :param locationid: Location ID
+        :param location_id: Location ID
         :return: True if JSON was retrieved; False if not
         """
-        fetchedjson = ''
-        link = 'https://www.instagram.com/explore/locations/{}'.format(locationid)
+        link = f'https://www.instagram.com/explore/locations/{location_id}/'
+        measure_start = time.time()
         fetchedjson = get_json_instagram(link,
                                          self.proxies,
-                                         locationid,
                                          self.useproxy)
-
+        measure_end(location_id,
+                    measure_start,
+                    'Fetching JSON')
         if not fetchedjson:
-            self.log.info('%s: No JSON has been extracted', locationid)
-            set_deleted(self.locdb, 'id', locationid)
+            self.log.info(f'{location_id}: JSON could not be retrieved from {link}')
+            set_deleted(self.locdb, 'id', location_id)
             return False
-        file_storage_json_location = os.path.join(self.storage_directory,
-                                                  self.storage_json_location)
-        write_json(file_storage_json_location,
-                   locationid,
-                   fetchedjson,
-                   self.s3_link,
-                   self.storage_json_location)
-        self.log.debug('%s: JSON has been saved', locationid)
-        set_retrieved_time(self.locdb, 'id', locationid)
-        self.log.debug('%s: Location is marked as retrieved', locationid)
-        self.log.info('%s: Location has been retrieved', locationid)
+
+        # Writing JSON to local directory
+        measure_start = time.time()
+        discovered_at_time = int(time.time())
+        write_json_local(fetchedjson,
+                         self.storage_directory,
+                         self.storage_json_location,
+                         location_id,
+                         discovered_at_time)
+        self.log.debug(f'{location_id}: JSON file writte to local directory')
+        measure_end(location_id,
+                    measure_start,
+                    'Writing JSON locally')
+
+        measure_start = time.time()
+        set_retrieved_time(self.locdb,
+                           'id',
+                           location_id,
+                           discovered_at_time)
+        measure_end(location_id,
+                    measure_start,
+                    'Updating DB about writing JSON locally')
+
+        # Writing JSON to S3 storage
+        if self.s3:
+            measure_start = time.time()
+            write_json_s3(self.s3_link,
+                          self.s3_bucket,
+                          self.storage_directory,
+                          self.storage_json_location,
+                          location_id,
+                          discovered_at_time)
+            measure_end(location_id,
+                        measure_start,
+                        'Writing JSON to S3')
+
+        # Completing
+        self.log.debug(f'{location_id}: JSON has been saved')
+
         return True
 
     def retrieve_user(self, userid):
@@ -262,22 +350,57 @@ class Retrieve:
         :param userid: User ID
         :return: True if JSON was retrieved; False if not
         """
-        link = 'https://www.instagram.com/{}/'.format(userid)
+        link = f'https://www.instagram.com/{userid}/'
+        measure_start = time.time()
         fetchedjson = get_json_instagram(link,
                                          self.proxies,
-                                         userid,
                                          self.useproxy)
-
+        measure_end(userid,
+                    measure_start,
+                    'Fetching JSON')
         if not fetchedjson:
-            self.log.debug('Location %s: No JSON retrieved', userid)
+            self.log.debug(f'{userid}: JSON could not be retrieved from {link}')
             set_deleted(self.userdb, 'username', userid)
             return False
-        self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
-        file_storage_json_user = os.path.join(self.storage_directory,
-                                              self.storage_json_user)
-        write_json(file_storage_json_user, userid, fetchedjson, self.s3_link,
-                   self.storage_json_user)
-        set_retrieved_time(self.userdb, 'username', userid)
+
+        # Writing JSON to local directory
+        measure_start = time.time()
+        discovered_at_time = int(time.time())
+        write_json_local(fetchedjson,
+                         self.storage_directory,
+                         self.storage_json_user,
+                         userid,
+                         discovered_at_time)
+        self.log.debug(f'{userid}: JSON file writte to local directory')
+        measure_end(userid,
+                    measure_start,
+                    'Writing JSON locally')
+
+        measure_start = time.time()
+        set_retrieved_time(self.userdb,
+                           'username',
+                           userid,
+                           discovered_at_time)
+        measure_end(userid,
+                    measure_start,
+                    'Updating DB about writing JSON locally')
+
+        # Writing JSON to S3 storage
+        if self.s3:
+            measure_start = time.time()
+            write_json_s3(self.s3_link,
+                          self.s3_bucket,
+                          self.storage_directory,
+                          self.storage_json_user,
+                          userid,
+                          discovered_at_time)
+            measure_end(userid,
+                        measure_start,
+                        'Writing JSON to S3')
+
+        # Completing
+        self.log.debug(f'{userid}: JSON has been saved')
+
         return True
 
     def retrieve_picture(self, pictureid):
@@ -286,20 +409,60 @@ class Retrieve:
         :param pictureid: Picture ID
         :return: True if JSON was retrieved; False if not
         """
-        link = 'https://www.instagram.com/p/{}/'.format(pictureid)
+        link = f'https://www.instagram.com/p/{pictureid}/'
+        measure_start = time.time()
         fetchedjson = get_json_instagram(link,
                                          self.proxies,
-                                         pictureid,
                                          self.useproxy)
-
+        measure_end(pictureid,
+                    measure_start,
+                    'Fetching JSON')
         if not fetchedjson:
-            self.log.debug('%s: No JSON for picture retrieved', pictureid)
+            self.log.info(f'{pictureid}: JSON could not be retrieved from {link}')
             set_deleted(self.picdb, 'shortcode', pictureid)
             return False
-        self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
-        file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
-        write_json(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
-                   self.storage_json_post)
+
+        # Writing JSON to local directory
+        measure_start = time.time()
+        discovered_at_time = int(time.time())
+        write_json_local(fetchedjson,
+                         self.storage_directory,
+                         self.storage_pictures,
+                         pictureid,
+                         discovered_at_time)
+        self.log.debug(f'{pictureid}: JSON file writte to local directory')
+        measure_end(pictureid,
+                    measure_start,
+                    'Writing JSON locally')
+
+        measure_start = time.time()
+        set_retrieved_time(self.picdb,
+                           'shortcode',
+                           pictureid,
+                           discovered_at_time)
+        measure_end(pictureid,
+                    measure_start,
+                    'Updating DB about writing JSON locally')
+
+        # Writing JSON to S3 storage
+        if self.s3:
+            measure_start = time.time()
+            write_json_s3(self.s3_link,
+                          self.s3_bucket,
+                          self.storage_directory,
+                          self.storage_json_post,
+                          pictureid,
+                          discovered_at_time)
+            measure_end(pictureid,
+                        measure_start,
+                        'Writing JSON to S3')
+
+        # Writing Picture to S3 storage
+
+        # Completing
+        self.log.debug(f'{location_id}: JSON has been saved')
+
+        #Todo: extract grabimage even further as done with JSON
         file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
         try:
             grabimage(file_storage_pictures,
@@ -312,5 +475,5 @@ class Retrieve:
         except Exception:
             self.log.exception('Check the exception with the following: %s, %s',
                                pictureid, fetchedjson)
-        set_retrieved_time(self.picdb, 'shortcode', pictureid)
+
         return True

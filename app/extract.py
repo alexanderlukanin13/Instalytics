@@ -38,6 +38,34 @@ def tag_extractor(text, category, keytag):
 
     return tag_list
 
+def get_retrieved_at_time(db_link,
+                          partitionkey,
+                          value):
+    retrieved_at_time = db_link.get_item(
+        Key={partitionkey: value},
+        ProjectionExpression='retrieved_at_time'
+    )['Item']['retrieved_at_time']
+
+    return retrieved_at_time
+
+def read_json_local(storage_directory,
+                    storage_json_location,
+                    partitionkey,
+                    capturing_time,
+                    subfolder=True):
+    if subfolder:
+        local_file_storage_json = os.path.join(storage_directory,
+                                               storage_json_location,
+                                               str(partitionkey)
+                                               )
+    else:
+        local_file_storage_json = os.path.join(storage_directory,
+                                               storage_json_location
+                                               )
+    with open(f'{local_file_storage_json}/{capturing_time}_{partitionkey}.json') as file:
+        rawjson = file.read()
+
+    return rawjson
 
 class Extract:
     """
@@ -74,16 +102,18 @@ class Extract:
         Todo: Define DBs differently on main
         """
 
+        retrieved_at_time = get_retrieved_at_time(self.locdb,
+                                                  'id',
+                                                  locationid)
+
         #Configure dictionary for saving the results
         location = {}
 
         #Get json from file
-        file_storage_json_location = os.path.join(self.storage_directory,
-                                                  self.storage_json_location)
-        with open('{}/{}.json'.format(file_storage_json_location, locationid), 'r') as file:
-            filetext = file.read().split('\n')
-            rawjson = filetext[1]
-            retrieved_at_time = int(filetext[0])
+        rawjson = read_json_local(self.storage_directory,
+                                  self.storage_json_location,
+                                  locationid,
+                                  retrieved_at_time)
 
         # Transform JSON from file
         rawdatastore = json.loads(rawjson)
@@ -155,7 +185,7 @@ class Extract:
         self.locdbupdate.put_item(
             Item={
                 'id': int(locationid),
-                'at_time': int(time.time()),
+                'at_time': retrieved_at_time,
                 'media_count': location['media_count']
             }
         )
@@ -424,16 +454,17 @@ class Extract:
         :param username: username for user
         :return: None
         """
-
+        retrieved_at_time = get_retrieved_at_time(self.userdb,
+                                                  'username',
+                                                  username)
         # Configure dictionary for saving the results
         user = {}
 
         # Get json from file
-        file_storage_json_user = os.path.join(self.storage_directory, self.storage_json_user)
-        with open('{}/{}.json'.format(file_storage_json_user, username), 'r') as file:
-            filetext = file.read().split('\n')
-            rawjson = filetext[1]
-            retrieved_at_time = int(filetext[0])
+        rawjson = read_json_local(self.storage_directory,
+                                  self.storage_json_user,
+                                  username,
+                                  retrieved_at_time)
 
         # Transform JSON from file
         rawdatastore = json.loads(rawjson)
@@ -506,7 +537,7 @@ class Extract:
         self.userdbupdate.put_item(
             Item={
                 'id': int(datastore['id']),
-                'at_time': int(time.time()),
+                'at_time': retrieved_at_time,
                 'username': username,
                 'follow_count': user['follow_count'],
                 'followed_by_count': user['followed_by_count'],

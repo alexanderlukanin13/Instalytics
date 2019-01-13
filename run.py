@@ -110,19 +110,20 @@ def main():
 
     # one location
     if args.command == 'get' and args.category == 'location':
-        logging.info('%s: Extracting location details', args.key)
-        retr.retrieve_location(int(args.key))
-        ex.location_details(args.key)
+        logging.info('%s: Retrieving/Extracting location details', args.key)
+        result = retr.retrieve_location(int(args.key))
+        if result:
+            ex.location_details(int(args.key))
 
     # one pictures
     elif args.command == 'get' and args.category == 'post':
-        logging.info('%s: Extracting picture details', args.key)
+        logging.info('%s: Retrieving/Extracting picture details', args.key)
         retr.retrieve_picture(args.key)
         ex.picture_details(args.key)
 
     # one user
     elif args.command == 'get' and args.category == 'user':
-        logging.info('%s: Extracting user details', args.key)
+        logging.info('%s: Retrieving/Extracting user details', args.key)
         retr.retrieve_user(args.key)
         ex.user_details(args.key)
 
