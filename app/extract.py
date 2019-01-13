@@ -251,21 +251,17 @@ class Extract:
         :param shortcode: Picture shortcode
         :return: None
         """
-
+        retrieved_at_time = get_retrieved_at_time(self.picdb,
+                                                  'shortcode',
+                                                  shortcode)
         # Configure dictionary for saving the results
         picture = {}
 
         # Get json from file
-        try:
-            file_storage_json_picture = os.path.join(self.storage_directory, self.storage_json_post)
-            with open('{}/{}.json'.format(file_storage_json_picture, shortcode), 'r') as file:
-                filetext = file.read().split('\n')
-                rawjson = filetext[1]
-                retrieved_at_time = int(filetext[0])
-
-        except FileNotFoundError:
-            self.log.debug('%s: File not found', shortcode)
-            raise
+        rawjson = read_json_local(self.storage_directory,
+                                  self.storage_json_post,
+                                  shortcode,
+                                  retrieved_at_time)
 
         # Transform JSON from file
         rawdatastore = json.loads(rawjson)

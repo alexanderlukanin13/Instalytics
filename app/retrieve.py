@@ -427,7 +427,7 @@ class Retrieve:
         discovered_at_time = int(time.time())
         write_json_local(fetchedjson,
                          self.storage_directory,
-                         self.storage_pictures,
+                         self.storage_json_post,
                          pictureid,
                          discovered_at_time)
         self.log.debug(f'{pictureid}: JSON file writte to local directory')
@@ -460,7 +460,7 @@ class Retrieve:
         # Writing Picture to S3 storage
 
         # Completing
-        self.log.debug(f'{location_id}: JSON has been saved')
+        self.log.debug(f'{pictureid}: JSON has been saved')
 
         #Todo: extract grabimage even further as done with JSON
         file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
