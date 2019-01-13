@@ -77,7 +77,7 @@ class Search:
 
             try:
                 lastkey = response['LastEvaluatedKey']
-            except:
+            except Exception:
                 self.log.info('After %s scanned itmens. No more last keys', scanneditem)
                 break
 
@@ -136,7 +136,7 @@ class Search:
                     retrieveditems += newresponse['Count']
                     scanneditems += newresponse['ScannedCount']
                     self.log.info('{} items received from {} scanned'.format(retrieveditems, scanneditems))
-                except errorfactory.ClientError as e:
+                except errorfactory.ClientError:
                     self.log.exception('Dynamodb client error')
                     continue
 
@@ -148,7 +148,7 @@ class Search:
                     savelastkey(category, step, lastkey)
                     self.log.debug('LastEvaluatedKey is {}, {} items retrieved'.format(lastkey, retrieveditems))
 
-                except KeyError as e:
+                except KeyError:
                     os.remove('./tmp/{}-{}-lastkey.tmp'.format(category, step))
                     self.log.info('DB scan completed. No further LastEvaluatedKey')
                     break
@@ -173,7 +173,7 @@ class Search:
                     retrieveditems += response['Count']
                     scanneditems += response['ScannedCount']
                     self.log.info('{} items received from {} scanned'.format(retrieveditems, scanneditems))
-                except errorfactory.ClientError as e:
+                except errorfactory.ClientError:
                     self.log.exception('Dynamodb client error')
                     continue
 
@@ -183,7 +183,7 @@ class Search:
                     lastkey = response['LastEvaluatedKey']
                     savelastkey(category, step, lastkey)
                     self.log.debug('LastEvaluatedKey is {}, {} items retrieved'.format(lastkey, retrieveditems))
-                except KeyError as e:
+                except KeyError:
                     self.log.info('Item "LastEvaluatedKey" not available. DB too small. Processing normally')
                     break
 

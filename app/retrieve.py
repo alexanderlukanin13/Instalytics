@@ -1,33 +1,29 @@
 """
-The retrieve program retrieves JSONs and pictures from instagram
+The retrieve program retrieves JSONs and pictures from Instagram.
 """
+from datetime import datetime
 import logging
+import os
 import random
 import re
 import shutil
 import time
-import os
 
-from datetime import datetime
-
-import requests
 import boto3
-
 from botocore import errorfactory
+import requests
+
+from .utils import read_lines
 
 
 def proxies_file():
-    """Returns a list of proxies from a local file"""
+    """
+    Returns a list of tuples (proxy_ip, user_agent) from a local file.
+    """
+    user_agents = read_lines('./config/agentstrings.conf')
+    proxies = read_lines('./config/proxys.conf')
+    return [(x, random.choice(user_agents)) for x in proxies]
 
-    proxies = []
-    with open('./config/agentstrings.conf', 'r') as file:
-        useragent = file.read().splitlines()
-    with open('./config/proxys.conf', 'r') as file:
-        proxyfile = file.read().splitlines()
-        for linenumber in range(len(proxyfile)):
-            proxies.append((proxyfile[linenumber], random.choice(useragent)))
-
-    return proxies
 
 def get_json_instagram(link, proxylist, key=None, useproxy=False):
     """
@@ -43,9 +39,9 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
 
     while True:
         try:
-            if useproxy is True:
+            if useproxy:
                 response = requests.get(link, headers={"User-Agent": useragent}, proxies={"https": proxy},
-                                    timeout=30)
+                                        timeout=30)
                 response.raise_for_status()
                 log.info('%s: Website retrieved after %s', key, response.elapsed)
                 break
@@ -54,11 +50,11 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
                 response.raise_for_status()
                 log.info('%s: Website retrieved after %s', key, response.elapsed)
                 break
-        except requests.exceptions.HTTPError as HTTPError:
-            if HTTPError.response.status_code == 404:
+        except requests.exceptions.HTTPError as ex:
+            if ex.response.status_code == 404:
                 log.info('%s: Requested site "Not Found" (404 Error)', key)
                 return None
-            elif HTTPError.response.status_code == 429:
+            elif ex.response.status_code == 429:
                 time.sleep(15)
                 continue
             else:
@@ -72,9 +68,7 @@ def get_json_instagram(link, proxylist, key=None, useproxy=False):
             proxy, useragent = random.choice(proxylist)
             log.info('%s: Timeout Error occurred. Proxy has been changed to %s', key, proxy)
             continue
-        except:
-            # Raise all other HTTP errors for now to see what action is needed
-            raise
+        # Raise all other HTTP errors for now to see what action is needed
 
     instagram_json = re.findall(r'(?<=window\._sharedData = )(?P<json>.*)(?=;</script>)', response.text)
 
@@ -153,6 +147,7 @@ def write_json(file_directory,
                         '{}/{}.json'.format(s3_directory, keyid))
     log.debug('%s: Uploaded to S3 storage to %s', keyid, s3_directory)
 
+
 def set_retrieved_time(db_link, key, value):
     """
     Set the retrieved time within the DB for further processing
@@ -180,6 +175,7 @@ def set_retrieved_time(db_link, key, value):
 
     log.debug(resp)
 
+
 def set_deleted(db_link, key, value):
     """
     Set the item deleted within the DB
@@ -202,11 +198,13 @@ def set_deleted(db_link, key, value):
 
     log.debug(resp)
 
-class Retrieve():
+
+class Retrieve:
     """
     Retrieve class extracts the JSON from Instagram, downloads the picture for posts,
     saves it locally and uploads it to Amazon S3 storage
     """
+
     def __init__(self,
                  useproxy=False,
                  awsprofile='default',
@@ -241,25 +239,22 @@ class Retrieve():
                                          locationid,
                                          self.useproxy)
 
-        if fetchedjson != None:
-            file_storage_json_location = os.path.join(self.storage_directory,
-                                                      self.storage_json_location)
-            write_json(file_storage_json_location,
-                       locationid,
-                       fetchedjson,
-                       self.s3_link,
-                       self.storage_json_location)
-            self.log.debug('%s: JSON has been saved', locationid)
-            set_retrieved_time(self.locdb, 'id', locationid)
-            self.log.debug('%s: Location is marked as retrieved', locationid)
-            self.log.info('%s: Location has been retrieved', locationid)
-            return True
-
-        else:
+        if not fetchedjson:
             self.log.info('%s: No JSON has been extracted', locationid)
             set_deleted(self.locdb, 'id', locationid)
             return False
-
+        file_storage_json_location = os.path.join(self.storage_directory,
+                                                  self.storage_json_location)
+        write_json(file_storage_json_location,
+                   locationid,
+                   fetchedjson,
+                   self.s3_link,
+                   self.storage_json_location)
+        self.log.debug('%s: JSON has been saved', locationid)
+        set_retrieved_time(self.locdb, 'id', locationid)
+        self.log.debug('%s: Location is marked as retrieved', locationid)
+        self.log.info('%s: Location has been retrieved', locationid)
+        return True
 
     def retrieve_user(self, userid):
         """
@@ -273,19 +268,17 @@ class Retrieve():
                                          userid,
                                          self.useproxy)
 
-        if fetchedjson != None:
-            self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
-            file_storage_json_user = os.path.join(self.storage_directory,
-                                                  self.storage_json_user)
-            write_json(file_storage_json_user, userid, fetchedjson, self.s3_link,
-                       self.storage_json_user)
-            set_retrieved_time(self.userdb, 'username', userid)
-            return True
-
-        else:
+        if not fetchedjson:
             self.log.debug('Location %s: No JSON retrieved', userid)
             set_deleted(self.userdb, 'username', userid)
             return False
+        self.log.debug('%s: Fetched JSON %s.', userid, fetchedjson)
+        file_storage_json_user = os.path.join(self.storage_directory,
+                                              self.storage_json_user)
+        write_json(file_storage_json_user, userid, fetchedjson, self.s3_link,
+                   self.storage_json_user)
+        set_retrieved_time(self.userdb, 'username', userid)
+        return True
 
     def retrieve_picture(self, pictureid):
         """
@@ -299,27 +292,25 @@ class Retrieve():
                                          pictureid,
                                          self.useproxy)
 
-        if fetchedjson != None:
-            self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
-            file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
-            write_json(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
-                       self.storage_json_post)
-            file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
-            try:
-                grabimage(file_storage_pictures,
-                          self.s3_link,
-                          self.storage_pictures,
-                          pictureid,
-                          fetchedjson[0],
-                          random.choice(self.proxies),
-                          self.useproxy)
-            except:
-                self.log.exception('Check the exception with the following: %s, %s',
-                                   pictureid, fetchedjson)
-            set_retrieved_time(self.picdb, 'shortcode', pictureid)
-            return True
-
-        else:
+        if not fetchedjson:
             self.log.debug('%s: No JSON for picture retrieved', pictureid)
             set_deleted(self.picdb, 'shortcode', pictureid)
             return False
+        self.log.debug('%s: Fetched JSON %s', pictureid, fetchedjson)
+        file_storage_json_post = os.path.join(self.storage_directory, self.storage_json_post)
+        write_json(file_storage_json_post, pictureid, fetchedjson, self.s3_link,
+                   self.storage_json_post)
+        file_storage_pictures = os.path.join(self.storage_directory, self.storage_pictures)
+        try:
+            grabimage(file_storage_pictures,
+                      self.s3_link,
+                      self.storage_pictures,
+                      pictureid,
+                      fetchedjson[0],
+                      random.choice(self.proxies),
+                      self.useproxy)
+        except Exception:
+            self.log.exception('Check the exception with the following: %s, %s',
+                               pictureid, fetchedjson)
+        set_retrieved_time(self.picdb, 'shortcode', pictureid)
+        return True
