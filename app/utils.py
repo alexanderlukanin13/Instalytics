@@ -1,5 +1,7 @@
+import contextlib
 import logging
 import time
+
 
 def read_lines(filename):
     """Read non-blank lines from a text file. Strip each line."""
@@ -12,8 +14,11 @@ def read_lines(filename):
             result.append(line)
     return result
 
-def measure_end(partitionkey,
-                measure_start,
-                step):
+
+@contextlib.contextmanager
+def measure_time(partition_key, step_name):
+    """Context manager to log operation timings."""
+    start_time = time.monotonic()
+    yield
     log = logging.getLogger(__name__)
-    log.debug(f'{partitionkey}: {step} took {time.time() - measure_start}')
+    log.debug(f'{partition_key}: {step_name} took {time.monotonic() - start_time}')
