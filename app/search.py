@@ -1,8 +1,8 @@
 import logging
-import boto3
 import os
 import json
 
+import boto3
 from boto3.dynamodb.conditions import Attr
 from botocore import errorfactory
 
@@ -55,14 +55,14 @@ class Search:
         lastkey = None
 
         while retritem < items:
-            if lastkey != None:
+            if lastkey:
                 response = db.scan(
                     ProjectionExpression=key,
                     FilterExpression=filter_expressions[used_filter],
                     ReturnConsumedCapacity='TOTAL',
                     ExclusiveStartKey=lastkey
                 )
-            if lastkey == None:
+            else:
                 response = db.scan(
                     ProjectionExpression=key,
                     FilterExpression=filter_expressions[used_filter],
@@ -100,7 +100,7 @@ class Search:
             db = self.locdb
         elif category == 'user':
             db = self.userdb
-        elif category == None:
+        elif not category:
             raise ValueError('Specify the category')
         else:
             raise ValueError('Wrong category chosen')
@@ -111,7 +111,7 @@ class Search:
 
         while retrieveditems < getitems:
 
-            if lastkey != None:
+            if lastkey:
                 try:
                     if step == 'discovered':
                         newresponse = db.scan(
@@ -153,7 +153,7 @@ class Search:
                     self.log.info('DB scan completed. No further LastEvaluatedKey')
                     break
 
-            if lastkey == None:
+            if not lastkey:
                 try:
                     if step == 'discovered':
                         response = db.scan(

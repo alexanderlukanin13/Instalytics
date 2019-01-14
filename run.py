@@ -12,7 +12,7 @@ from app import Search
 from app import Extract
 
 
-retr = None
+retr = None  # pylint: disable=C0103
 
 
 def log_header(log_message):
@@ -98,7 +98,7 @@ def main():
 
     # Initialize profiles
     sr = Search()
-    global retr
+    global retr  # pylint: disable=C0103,W0603
     retr = Retrieve(useproxy=not args.no_proxy, awsprofile='default', storage_directory='./downloads')
     ex = Extract(awsprofile='default', storage_directory='./downloads')
     dynamo = boto3.resource('dynamodb')

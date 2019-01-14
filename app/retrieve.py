@@ -150,7 +150,6 @@ def write_json_s3(storage_link,
                   partitionkey,
                   capturing_time,
                   subfolder=True):
-    log = logging.getLogger(__name__)
     if subfolder:
         local_file_storage_json = os.path.join(storage_directory,
                                                storage_location,
