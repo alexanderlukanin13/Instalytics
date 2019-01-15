@@ -4,7 +4,6 @@ Module is extracting all details from JSON file
 import logging
 import json
 import os
-import time
 
 from datetime import datetime
 from decimal import Decimal
@@ -228,7 +227,7 @@ class Extract:
                         else:
                             raise
 
-                if len(uploadedpictures) > 0:
+                if uploadedpictures:
                     self.log.info('For %s the following %s pictures were added: %s',
                                   locationid,
                                   len(uploadedpictures),
@@ -287,7 +286,7 @@ class Extract:
                 picture['size_' + element] = datastore['dimensions'][element]
 
         # Extract picture details from JSON - edge_media_to_tagged_user
-        if len(datastore['edge_media_to_tagged_user']['edges']) > 0:
+        if datastore['edge_media_to_tagged_user']['edges']:
             tagged_users = set()
             for user in datastore['edge_media_to_tagged_user']['edges']:
                 tagged_users.add(user['node']['user']['username'])
@@ -304,7 +303,7 @@ class Extract:
             self.log.debug('Picture %s: No caption available', shortcode)
 
         # Extract picture details from JSON - edge_media_to_comment
-        if len(datastore['edge_media_to_comment']['edges']) > 0:
+        if datastore['edge_media_to_comment']['edges']:
             picture_comments_commenters = set()
             for user in datastore['edge_media_to_comment']['edges']:
                 picture_comments_commenters.add(user['node']['owner']['username'])
@@ -349,19 +348,19 @@ class Extract:
         picture_ht_list = set()
 
         # -- Find hashtags or user references in the picture caption
-        if len(datastore['edge_media_to_caption']['edges']) > 0:
+        if datastore['edge_media_to_caption']['edges']:
             caption_tag_list = tag_extractor(datastore, 'edge_media_to_caption', '#')
             for tag in caption_tag_list:
                 picture_ht_list.add(tag)
 
         # -- Find hashtags or user references in the comments
-        if len(datastore['edge_media_to_comment']['edges']) > 0:
+        if datastore['edge_media_to_comment']['edges']:
             media_tag_list = tag_extractor(datastore, 'edge_media_to_comment', '#')
             for tag in media_tag_list:
                 picture_ht_list.add(tag)
         self.log.debug(picture_ht_list)
 
-        if len(picture_ht_list) > 0:
+        if picture_ht_list:
             picture['hashtags'] = list(picture_ht_list)
             picture['hashtags_count'] = len(picture_ht_list)
         else:
@@ -371,18 +370,18 @@ class Extract:
         picture_ref_list = set()
 
         # -- Find hashtags or user references in the picture caption
-        if len(datastore['edge_media_to_caption']['edges']) > 0:
+        if datastore['edge_media_to_caption']['edges']:
             caption_tag_list = tag_extractor(datastore, 'edge_media_to_caption', '@')
             for tag in caption_tag_list:
                 picture_ref_list.add(tag)
 
         # -- Find hashtags or user references in the comments
-        if len(datastore['edge_media_to_comment']['edges']) > 0:
+        if datastore['edge_media_to_comment']['edges']:
             media_tag_list = tag_extractor(datastore, 'edge_media_to_comment', '@')
             for tag in media_tag_list:
                 picture_ref_list.add(tag)
         self.log.debug(picture_ref_list)
-        if len(picture_ref_list) > 0:
+        if picture_ref_list:
             picture['referenced_users'] = list(picture_ref_list)
             picture['referenced_users_count'] = len(picture_ref_list)
         else:

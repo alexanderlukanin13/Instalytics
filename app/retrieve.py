@@ -13,8 +13,7 @@ import boto3
 from botocore import errorfactory
 import requests
 
-from .utils import read_lines
-from .utils import measure_end
+from .utils import read_lines, measure_time
 
 
 def proxies_file():
@@ -151,7 +150,6 @@ def write_json_s3(storage_link,
                   partitionkey,
                   capturing_time,
                   subfolder=True):
-    log = logging.getLogger(__name__)
     if subfolder:
         local_file_storage_json = os.path.join(storage_directory,
                                                storage_location,
@@ -292,52 +290,40 @@ class Retrieve:
         :return: True if JSON was retrieved; False if not
         """
         link = f'https://www.instagram.com/explore/locations/{location_id}/'
-        measure_start = time.time()
-        fetchedjson = get_json_instagram(link,
-                                         self.proxies,
-                                         self.useproxy)
-        measure_end(location_id,
-                    measure_start,
-                    'Fetching JSON')
+        with measure_time(location_id, 'Fetching JSON'):
+            fetchedjson = get_json_instagram(link,
+                                             self.proxies,
+                                             self.useproxy)
         if not fetchedjson:
             self.log.info(f'{location_id}: JSON could not be retrieved from {link}')
             set_deleted(self.locdb, 'id', location_id)
             return False
 
         # Writing JSON to local directory
-        measure_start = time.time()
         discovered_at_time = int(time.time())
-        write_json_local(fetchedjson,
-                         self.storage_directory,
-                         self.storage_json_location,
-                         location_id,
-                         discovered_at_time)
-        self.log.debug(f'{location_id}: JSON file writte to local directory')
-        measure_end(location_id,
-                    measure_start,
-                    'Writing JSON locally')
+        with measure_time(location_id, 'Writing JSON locally'):
+            write_json_local(fetchedjson,
+                             self.storage_directory,
+                             self.storage_json_location,
+                             location_id,
+                             discovered_at_time)
+        self.log.debug(f'{location_id}: JSON file written to local directory')
 
-        measure_start = time.time()
-        set_retrieved_time(self.locdb,
-                           'id',
-                           location_id,
-                           discovered_at_time)
-        measure_end(location_id,
-                    measure_start,
-                    'Updating DB about writing JSON locally')
+        with measure_time(location_id, 'Updating DB about writing JSON locally'):
+            set_retrieved_time(self.locdb,
+                               'id',
+                               location_id,
+                               discovered_at_time)
 
         # Writing JSON to S3 storage
         if self.s3:
-            measure_start = time.time()
-            write_json_s3(self.s3_link,
-                          self.s3_bucket,
-                          self.storage_directory,
-                          self.storage_json_location,
-                          location_id,
-                          discovered_at_time)
-            measure_end(location_id,
-                        measure_start,
-                        'Writing JSON to S3')
+            with measure_time(location_id, 'Writing JSON to S3'):
+                write_json_s3(self.s3_link,
+                              self.s3_bucket,
+                              self.storage_directory,
+                              self.storage_json_location,
+                              location_id,
+                              discovered_at_time)
 
         # Completing
         self.log.debug(f'{location_id}: JSON has been saved')
@@ -351,52 +337,40 @@ class Retrieve:
         :return: True if JSON was retrieved; False if not
         """
         link = f'https://www.instagram.com/{userid}/'
-        measure_start = time.time()
-        fetchedjson = get_json_instagram(link,
-                                         self.proxies,
-                                         self.useproxy)
-        measure_end(userid,
-                    measure_start,
-                    'Fetching JSON')
+        with measure_time(userid, 'Fetching JSON'):
+            fetchedjson = get_json_instagram(link,
+                                             self.proxies,
+                                             self.useproxy)
         if not fetchedjson:
             self.log.debug(f'{userid}: JSON could not be retrieved from {link}')
             set_deleted(self.userdb, 'username', userid)
             return False
 
         # Writing JSON to local directory
-        measure_start = time.time()
         discovered_at_time = int(time.time())
-        write_json_local(fetchedjson,
-                         self.storage_directory,
-                         self.storage_json_user,
-                         userid,
-                         discovered_at_time)
-        self.log.debug(f'{userid}: JSON file writte to local directory')
-        measure_end(userid,
-                    measure_start,
-                    'Writing JSON locally')
+        with measure_time(userid, 'Writing JSON locally'):
+            write_json_local(fetchedjson,
+                             self.storage_directory,
+                             self.storage_json_user,
+                             userid,
+                             discovered_at_time)
+        self.log.debug(f'{userid}: JSON file written to local directory')
 
-        measure_start = time.time()
-        set_retrieved_time(self.userdb,
-                           'username',
-                           userid,
-                           discovered_at_time)
-        measure_end(userid,
-                    measure_start,
-                    'Updating DB about writing JSON locally')
+        with measure_time(userid, 'Updating DB about writing JSON locally'):
+            set_retrieved_time(self.userdb,
+                               'username',
+                               userid,
+                               discovered_at_time)
 
         # Writing JSON to S3 storage
         if self.s3:
-            measure_start = time.time()
-            write_json_s3(self.s3_link,
-                          self.s3_bucket,
-                          self.storage_directory,
-                          self.storage_json_user,
-                          userid,
-                          discovered_at_time)
-            measure_end(userid,
-                        measure_start,
-                        'Writing JSON to S3')
+            with measure_time(userid, 'Writing JSON to S3'):
+                write_json_s3(self.s3_link,
+                              self.s3_bucket,
+                              self.storage_directory,
+                              self.storage_json_user,
+                              userid,
+                              discovered_at_time)
 
         # Completing
         self.log.debug(f'{userid}: JSON has been saved')
@@ -410,52 +384,40 @@ class Retrieve:
         :return: True if JSON was retrieved; False if not
         """
         link = f'https://www.instagram.com/p/{pictureid}/'
-        measure_start = time.time()
-        fetchedjson = get_json_instagram(link,
-                                         self.proxies,
-                                         self.useproxy)
-        measure_end(pictureid,
-                    measure_start,
-                    'Fetching JSON')
+        with measure_time(pictureid, 'Fetching JSON'):
+            fetchedjson = get_json_instagram(link,
+                                             self.proxies,
+                                             self.useproxy)
         if not fetchedjson:
             self.log.info(f'{pictureid}: JSON could not be retrieved from {link}')
             set_deleted(self.picdb, 'shortcode', pictureid)
             return False
 
         # Writing JSON to local directory
-        measure_start = time.time()
         discovered_at_time = int(time.time())
-        write_json_local(fetchedjson,
-                         self.storage_directory,
-                         self.storage_json_post,
-                         pictureid,
-                         discovered_at_time)
+        with measure_time(pictureid, 'Writing JSON locally'):
+            write_json_local(fetchedjson,
+                             self.storage_directory,
+                             self.storage_json_post,
+                             pictureid,
+                             discovered_at_time)
         self.log.debug(f'{pictureid}: JSON file writte to local directory')
-        measure_end(pictureid,
-                    measure_start,
-                    'Writing JSON locally')
 
-        measure_start = time.time()
-        set_retrieved_time(self.picdb,
-                           'shortcode',
-                           pictureid,
-                           discovered_at_time)
-        measure_end(pictureid,
-                    measure_start,
-                    'Updating DB about writing JSON locally')
+        with measure_time(pictureid, 'Updating DB about writing JSON locally'):
+            set_retrieved_time(self.picdb,
+                               'shortcode',
+                               pictureid,
+                               discovered_at_time)
 
         # Writing JSON to S3 storage
         if self.s3:
-            measure_start = time.time()
-            write_json_s3(self.s3_link,
-                          self.s3_bucket,
-                          self.storage_directory,
-                          self.storage_json_post,
-                          pictureid,
-                          discovered_at_time)
-            measure_end(pictureid,
-                        measure_start,
-                        'Writing JSON to S3')
+            with measure_time(pictureid, 'Writing JSON to S3'):
+                write_json_s3(self.s3_link,
+                              self.s3_bucket,
+                              self.storage_directory,
+                              self.storage_json_post,
+                              pictureid,
+                              discovered_at_time)
 
         # Writing Picture to S3 storage
 

@@ -140,6 +140,9 @@ disable=print-statement,
         exception-escape,
         comprehension-escape,
         logging-format-interpolation,
+        logging-fstring-interpolation,
+        bad-continuation,
+        missing-docstring,
         broad-except
 
 # Enable the message, report, category or checker with the given id(s). You can
@@ -280,10 +283,15 @@ function-naming-style=snake_case
 #function-rgx=
 
 # Good variable names which should always be accepted, separated by a comma.
-good-names=i,
+good-names=db,
+           i,
            j,
            k,
+           f,
            ex,
+           s3,
+           x,
+           sr,
            Run,
            _
 
