@@ -30,6 +30,9 @@ MANIFEST
 # Mac files
 *.DS_Store
 
+# TOML file
+*.toml
+
 # Tempfiles
 tmp/
 
