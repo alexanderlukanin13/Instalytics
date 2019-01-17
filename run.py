@@ -5,11 +5,14 @@ This is the runner module which is the main module to run Instalytics
 import multiprocessing as mp
 import logging
 import argparse
-import boto3
+import os
 
 from app import Retrieve
 from app import Search
 from app import Extract
+
+import toml
+import boto3
 
 
 retr = None  # pylint: disable=C0103
@@ -89,12 +92,25 @@ def parse_args():
     return parser.parse_args()
 
 
+def parse_toml(file_directory="config/"):
+    """Parsing the default toml file"""
+    file = os.path.join(file_directory, "settings.toml")
+    with open(file) as f:
+        parsed_toml_file = toml.load(f)
+
+    return parsed_toml_file
+
+
+
 def main():
     """Main function of the script."""
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
+    il_settings = parse_toml()
 
-    logging.info(args.__dict__)
+    # Debugging parameters and settings
+    logging.debug(args.__dict__)
+    logging.debug(il_settings)
 
     # Initialize profiles
     sr = Search()
@@ -111,21 +127,23 @@ def main():
     # one location
     if args.command == 'get' and args.category == 'location':
         logging.info('%s: Retrieving/Extracting location details', args.key)
-        result = retr.retrieve_location(int(args.key))
+        result = retr.retrieve_location(int(args.key), il_settings)
         if result:
             ex.location_details(int(args.key))
 
-    # one pictures
+    # one post
     elif args.command == 'get' and args.category == 'post':
         logging.info('%s: Retrieving/Extracting picture details', args.key)
-        retr.retrieve_picture(args.key)
-        ex.picture_details(args.key)
+        result = retr.retrieve_picture(args.key)
+        if result:
+            ex.picture_details(args.key)
 
     # one user
     elif args.command == 'get' and args.category == 'user':
         logging.info('%s: Retrieving/Extracting user details', args.key)
-        retr.retrieve_user(args.key)
-        ex.user_details(args.key)
+        result = retr.retrieve_user(args.key)
+        if result:
+            ex.user_details(args.key)
 
     # run retrieve and extract locations
     elif args.command == 'run' and args.category == 'location':

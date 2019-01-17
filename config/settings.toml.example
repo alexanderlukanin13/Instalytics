@@ -1,0 +1,7 @@
+[dynamodb]
+locations = "te_location"
+locationsupdate = "te_locationupd"
+posts = "te_post"
+postsupdate = "te_postupd"
+users = "te_user"
+usersupdate = "te_userupd"

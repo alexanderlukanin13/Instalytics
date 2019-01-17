@@ -283,12 +283,13 @@ class Retrieve:
         self.storage_json_post = 'json/post'
         self.storage_pictures = 'pictures'
 
-    def retrieve_location(self, location_id):
+    def retrieve_location(self, location_id, settings):
         """
         Retrieve location details
         :param location_id: Location ID
         :return: True if JSON was retrieved; False if not
         """
+        self.log.info(settings)
         link = f'https://www.instagram.com/explore/locations/{location_id}/'
         with measure_time(location_id, 'Fetching JSON'):
             fetchedjson = get_json_instagram(link,
