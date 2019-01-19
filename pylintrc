@@ -143,6 +143,7 @@ disable=print-statement,
         logging-fstring-interpolation,
         bad-continuation,
         missing-docstring,
+        redefined-builtin,
         broad-except
 
 # Enable the message, report, category or checker with the given id(s). You can
@@ -292,6 +293,10 @@ good-names=db,
            s3,
            x,
            sr,
+           kw,
+           log,
+           loop,
+           id,
            Run,
            _
 
